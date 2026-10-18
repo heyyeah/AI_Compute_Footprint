@@ -1,0 +1,819 @@
+/* AI Compute Footprint. All numbers come from window.MODEL (data/model.js). */
+(function () {
+  "use strict";
+  const M = window.MODEL;
+  const F = M.factors;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const PLURAL = {
+    query: "short answers", image: "images", webpage: "simple web pages", doc: "document drafts", maths: "maths solutions",
+    interactive: "interactive pages", song: "songs", slides: "presentations", program: "small programs", video: "short videos",
+    webapp: "full web apps", animation: "animations", "program-full": "full programs", mvp: "app MVPs", musicvideo: "music videos",
+    prodapp: "functional apps"
+  };
+  const CONF = { good: "Measured", rough: "Estimate", guess: "Rough estimate", missing: "Not shown" };
+  const CONF_SHORT = { good: "measured", rough: "estimate", guess: "rough estimate" };
+  const FREQ_INTERVAL = { y1: 365, m1: 30.44, w1: 7 };
+
+  /* 24×24 filled glyphs */
+  const ICON = {
+    bolt: "M13 2 4 14h7l-1 8 9-12h-7z",
+    drop: "M12 2.5c3.8 4.6 6.5 8.3 6.5 11.6a6.5 6.5 0 0 1-13 0c0-3.3 2.7-7 6.5-11.6z",
+    cloud: "M7 19a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 8.6 4.6 4.6 0 0 1 17.5 19z",
+    steak: "M6.5 6C9 3.6 14.4 3 17.7 5.4c3.3 2.5 3.4 7.6.4 10.6-2.6 2.7-6.1 2.5-8.4 4.4-1.6 1.3-4 1.4-5.2-.2-1.3-1.7-.4-3.6-.4-5.5 0-3.3-.3-6.1 2.4-8.7zM14.5 8.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+    coal: "M3.5 15.5 6 8.5l5.5-3.5 6 2.5 3 6-2.5 5.5-7 1.5-5.5-2z",
+    car: "M2.5 17.2v-3.7c0-.6.4-1 1-1.1l2.7-.6 2.4-3.4h6.6l2.4 3.4 2.9.6c.6.1 1 .5 1 1.1v3.7h-1.9a2.6 2.6 0 0 0-5.2 0H9.6a2.6 2.6 0 0 0-5.2 0zM9.1 9.4h2.6v2.2H7.6zm3.7 0h2.1l1.9 2.2h-4zM7 15.4a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm10 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z",
+    land: "M3 3h18v18H3zM5 5v6h6V5zm8 0v6h6V5zM5 13v6h6v-6zm8 0v6h6v-6z",
+    plane: "M21.5 12c0-.9-.7-1.5-1.5-1.5h-5.2L10 3h-2.2l2.4 7.5H5.3L3.6 8H2l1 4-1 4h1.6l1.7-2.5h4.9L7.8 21H10l4.8-7.5H20c.8 0 1.5-.6 1.5-1.5z",
+    house: "M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+    glass: "M5 3h14l-1.8 16.2a2 2 0 0 1-2 1.8H8.8a2 2 0 0 1-2-1.8z",
+    person: "M12 3a3.6 3.6 0 1 1 0 7.2A3.6 3.6 0 0 1 12 3zM4.5 21v-2.2c0-3.5 3.2-5.8 7.5-5.8s7.5 2.3 7.5 5.8V21z",
+    burger: "M4 10.5C4 7 7.6 4.5 12 4.5s8 2.5 8 6zM3.5 12.5h17v2.2h-17zM4 16.3h16v1.2a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z",
+    pool: "M2 14.5c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5v7H2zM2 8.5c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5V10c-2 0-2 1.5-4 1.5S16 10 14 10s-2 1.5-4 1.5S8 10 6 10s-2 1.5-4 1.5z",
+    pitch: "M2 5h20v14H2zM11.3 6.5H3.5v11h7.8zm1.4 0v11h7.8v-11z",
+    bulb: "M12 2.5a6.5 6.5 0 0 1 3.8 11.8c-.6.5-.8 1.1-.8 1.8V17H9v-.9c0-.7-.3-1.3-.8-1.8A6.5 6.5 0 0 1 12 2.5zM9 18.5h6V20a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 20z",
+    kettle: "M5 8.5h11l1.5 10.5a1.5 1.5 0 0 1-1.5 1.7H5.5A1.5 1.5 0 0 1 4 19zM7 8.5V7a3.5 3.5 0 0 1 7 0v1.5h-1.6V7a1.9 1.9 0 0 0-3.8 0v1.5zM16.4 11l3.3-1.6.6 1.4-3.6 1.7z",
+    rack: "M6 2.5h12a1 1 0 0 1 1 1v17a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1zM7.5 5v2.2h9V5zm0 4.2v2.2h9V9.2zm0 4.2v2.2h9v-2.2z",
+    tower: "M6 21c1.6-4.2 1.6-9.6 0-15h12c-1.6 5.4-1.6 10.8 0 15zM9 3h2.2v2H9zm3.8-1H15v3h-2.2z",
+    pin: "M12 2.5a7 7 0 0 1 7 7c0 5-7 12-7 12s-7-7-7-12a7 7 0 0 1 7-7zM12 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
+    campus: "M2 20.5V9.5l6-3v3l6-3v3l6-3v14z",
+    globe: "M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19zM12 4.6c-2 2.1-3 4.6-3 7.4s1 5.3 3 7.4c2-2.1 3-4.6 3-7.4s-1-5.3-3-7.4z",
+    gpu: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM8 9v6h8V9z"
+  };
+  const svgIcon = (name, cls = "ico") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICON[name] || ICON.bolt}"/></svg>`;
+  const CMP_ICON = { beef: "steak", coal: "coal", car: "car", flight: "plane", power: "house", water: "glass", total: "person" };
+  const EQ_ICON = { burger: "burger", carkm: "car", zrhlon: "plane", shower: "drop", pool: "pool" };
+
+  // visitors in American time zones start with US averages
+  function guessBasis() {
+    try { return /^America\//.test(Intl.DateTimeFormat().resolvedOptions().timeZone) ? "US" : "CH"; } catch (e) { return "CH"; }
+  }
+  const state = {
+    task: 0, freq: 6, people: "person", customN: null, period: 3, own: true, adoption: null, share: null,
+    basis: guessBasis(), grid: "eu", metric: "co2", view: "bars",
+    compare: new Set(["beef", "coal", "car", "flight", "total"]), taskLog: true
+  };
+
+  /* ---------- formatting */
+  const NF = {};
+  function nf(x, sig = 2) {
+    if (x == null || !isFinite(x)) return "—";
+    if (x === 0) return "0";
+    const a = Math.abs(x);
+    if (a < 1e-4) {
+      const e = Math.floor(Math.log10(a));
+      const sup = String(e).replace(/-/g, "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]);
+      return `${(NF["s" + sig] ||= new Intl.NumberFormat("en", { maximumSignificantDigits: sig })).format(x / Math.pow(10, e))}×10${sup}`;
+    }
+    return (NF[sig] ||= new Intl.NumberFormat("en", { maximumSignificantDigits: sig })).format(x);
+  }
+  function fmtCount(x, sig = 2) {
+    const a = Math.abs(x);
+    if (a < 1e6) return nf(x, a >= 1000 ? 3 : sig);
+    for (const [v, w] of [[1e15, "quadrillion"], [1e12, "trillion"], [1e9, "billion"], [1e6, "million"]]) if (a >= v) return `${nf(x / v, sig)} ${w}`;
+    return nf(x);
+  }
+  const compact = new Intl.NumberFormat("en", { notation: "compact", maximumSignificantDigits: 2 });
+  function fmtE(kwh) {
+    if (kwh < 1) return `${nf(kwh * 1000)} Wh`;
+    for (const [v, s] of [[1e12, "PWh"], [1e9, "TWh"], [1e6, "GWh"], [1e3, "MWh"], [1, "kWh"]]) if (kwh >= v) return `${nf(kwh / v)} ${s}`;
+    return `${nf(kwh)} kWh`;
+  }
+  function fmtW(L) {
+    if (L < 1) return `${nf(L * 1000)} mL`;
+    if (L < 1000) return `${nf(L)} L`;
+    if (L < 1e9) return `${nf(L / 1000)} m³`;
+    if (L < 1e12) return `${nf(L / 1e9)} million m³`;
+    return `${nf(L / 1e12)} km³`;
+  }
+  function fmtM(kg) {
+    if (kg < 0.001) return `${nf(kg * 1e6)} mg`;
+    if (kg < 1) return `${nf(kg * 1000)} g`;
+    if (kg < 1000) return `${nf(kg)} kg`;
+    for (const [v, s] of [[1e12, "Gt"], [1e9, "Mt"], [1e6, "kt"], [1e3, "t"]]) if (kg >= v) return `${nf(kg / v)} ${s}`;
+    return `${nf(kg)} kg`;
+  }
+  function fmtD(s) {
+    if (s < 1) return `${nf(s * 1000)} ms`;
+    if (s < 60) return `${nf(s)} s`;
+    if (s < 3600) return `${nf(s / 60)} min`;
+    if (s < 86400) return `${nf(s / 3600)} h`;
+    if (s < 86400 * 365) return `${nf(s / 86400)} days`;
+    return `${nf(s / (86400 * 365))} years`;
+  }
+  function fmtA(m2) {
+    if (m2 < 1) return `${nf(m2 * 1e4)} cm²`;
+    if (m2 < 1e4) return `${nf(m2)} m²`;
+    if (m2 < 1e6) return `${nf(m2 / 1e4)} ha`;
+    return `${nf(m2 / 1e6)} km²`;
+  }
+  function fmtPow(w) {
+    for (const [v, s] of [[1e12, "TW"], [1e9, "GW"], [1e6, "MW"], [1e3, "kW"], [1, "W"]]) if (w >= v) return `${nf(w / v)} ${s}`;
+    return `${nf(w * 1000)} mW`;
+  }
+  const fmtRatio = (r) => (!isFinite(r) ? "—" : r >= 1 ? `${nf(r)}×` : `${nf(r * 100)}%`);
+  const FMT = { co2: fmtM, kwh: fmtE, water: fmtW };
+  const METRIC = { co2: "CO₂", kwh: "energy", water: "water" };
+
+  function srcLinks(ids) {
+    return (ids || []).filter((id) => M.sources[id]).map((id) => {
+      const s = M.sources[id];
+      const short = s.t.split(/,|:/)[0].replace(/\s*\(.*$/, "");
+      return `<a href="${esc(s.u)}" target="_blank" rel="noopener" title="${esc(s.t)} (${esc(s.d)})">${esc(short)}</a>`;
+    }).join(" ");
+  }
+
+  /* ---------- model */
+  const presetsSorted = () => M.presets.slice().sort((a, b) => a[state.basis].n - b[state.basis].n);
+  const preset = () => M.presets.find((p) => p.id === state.people);
+  const peopleN = () => (state.people === "custom" ? state.customN : preset()[state.basis].n);
+  const isOnce = () => M.frequencies[state.freq].perDay == null;
+  const allowedPeriod = (i) => M.periods[i].days >= (FREQ_INTERVAL[M.frequencies[state.freq].id] || 0) - 0.01;
+  function fixPeriod() { if (!allowedPeriod(state.period)) state.period = M.periods.findIndex((p, i) => allowedPeriod(i)); }
+  // daily-users filter defaults on from 50 people
+  const adopt = () => (state.adoption != null ? state.adoption : peopleN() >= 50);
+  function peopleLabel() {
+    const n = peopleN(), pct = adopt() ? `${nf(shareV() * 100)}% daily users` : "";
+    if (state.people === "custom") return `${nf(n, 6)} ${n === 1 ? "person" : "people"}${pct ? ` (${pct})` : ""}`;
+    const p = preset();
+    if (p.id === "person") return `1 person${pct ? ` (${pct})` : ""}`;
+    return `${p.label} (${compact.format(n)}${pct ? `, ${pct}` : ""})`;
+  }
+  // Switzerland, USA and world presets use their own averages
+  const LOCK = { smallcountry: "CH", bigcountry: "US", world: "World" };
+  const basisId = () => LOCK[state.people] || state.basis;
+  const adoptionRef = () => (state.people !== "custom" && preset().work ? M.bases[basisId()].work : M.bases[basisId()].adoption);
+  const shareV = () => (state.share != null ? state.share : adoptionRef().v);
+  const homeW = () => (M.bases[basisId()].homeKWhPerDay * 1000) / 24;
+
+  const GPU_AVG_KW = F.gpuKW.v * F.draw.v;
+  const SERVER = F.serverGPUs.v;
+  const RACK_MW = (F.gpusPerRack.v * F.gpuKW.v) / F.pue.v / 1000;
+  const serverSec = (wh) => (wh / 1000 / GPU_AVG_KW / SERVER) * 3600;
+  function compute() {
+    const t = M.tasks[state.task], f = M.frequencies[state.freq], b = M.bases[basisId()], g = M.grids[state.grid];
+    const once = f.perDay == null;
+    const own = once && state.own;
+    const days = own ? Math.max(1, t.dur / 86400) : M.periods[state.period].days;
+    const span = own ? (t.dur >= 86400 ? `~${fmtD(t.dur)}` : "a day") : `a ${M.periods[state.period].label.toLowerCase()}`;
+    const people = peopleN();
+    const users = people * (adopt() ? shareV() : 1);
+    const count = once ? users : users * f.perDay * days;
+    const kwh = t.wh.map((w) => (w * count) / 1000);
+    const hours = days * 24;
+    const gpuH = kwh.map((e) => e / GPU_AVG_KW);
+    const running = gpuH.map((x) => x / hours);
+    const racks = running.map((x) => x / F.gpusPerRack.v);
+    const itMW = running.map((x) => (x * F.gpuKW.v) / F.pue.v / 1000);
+    const dcs = itMW.map((m) => m / F.dcMW.v);
+    // physical space: whole racks, at least one
+    const fullRacks = racks.map((x) => Math.max(1, Math.ceil(x - 1e-9)));
+    const floor = fullRacks.map((n, i) => n * RACK_MW * F.buildingM2perMW.v[i]);
+    const site = fullRacks.map((n, i) => n * RACK_MW * F.landM2perMW.v[i]);
+    const waterOn = kwh.map((e, i) => (e / F.pue.v) * F.onsiteWater.v[i]); // WUE is per IT kWh
+    const waterOff = kwh.map((e, i) => e * [g.waterRange[0], g.water, g.waterRange[1]][i]);
+    const water = kwh.map((e, i) => waterOn[i] + waterOff[i]);
+    const co2 = kwh.map((e) => e * g.co2);
+    const watts = kwh.map((e) => (e * 1000) / hours);
+    return { t, f, b, g, once, days, span, people, users, count, tokens: count * t.tokens, kwh, hours, gpuH, running, racks, fullRacks, itMW, dcs, floor, site, waterOn, waterOff, water, co2, watts };
+  }
+
+  /* ---------- popover */
+  const pop = { el: $("#pop"), scrim: $("#scrim"), anchor: null, update: null };
+  function closePop(refocus) {
+    if (!pop.anchor) return;
+    pop.anchor.setAttribute("aria-expanded", "false");
+    if (refocus) pop.anchor.focus();
+    pop.el.hidden = true; pop.scrim.hidden = true; pop.anchor = null; pop.update = null;
+  }
+  function openPop(anchor, title, build) {
+    if (pop.anchor === anchor) { closePop(); return; }
+    closePop();
+    const { node, update } = build();
+    pop.el.innerHTML = `<div class="pop-head"><span class="lbl">${esc(title)}</span><button type="button" class="pop-x" aria-label="Close">×</button></div>`;
+    pop.el.appendChild(node);
+    pop.el.querySelector(".pop-x").addEventListener("click", () => closePop(true));
+    pop.el.setAttribute("aria-label", title);
+    pop.el.hidden = false; pop.anchor = anchor; pop.update = update || null;
+    anchor.setAttribute("aria-expanded", "true");
+    placePop();
+    const first = ["input", ".opt[aria-pressed='true']", ".seg button:not([disabled])", "a"].map((q) => pop.el.querySelector(q)).find(Boolean);
+    if (first) first.focus({ preventScroll: true });
+  }
+  function placePop() {
+    if (!pop.anchor) return;
+    const sheet = window.innerWidth < 640;
+    pop.el.classList.toggle("sheet", sheet);
+    pop.scrim.hidden = !sheet;
+    if (sheet) { pop.el.style.left = ""; pop.el.style.top = ""; return; }
+    const r = pop.anchor.getBoundingClientRect();
+    const w = pop.el.offsetWidth, h = pop.el.offsetHeight;
+    const left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
+    let top = r.bottom + 8;
+    if (top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 8);
+    pop.el.style.left = `${left}px`;
+    pop.el.style.top = `${top}px`;
+  }
+  const node = (html) => { const d = document.createElement("div"); d.style.display = "grid"; d.style.gap = "10px"; d.innerHTML = html; return d; };
+  const MORE = `<p class="more-links">Info about <a href="#sure" data-goto="sure">confidence</a>, <a href="#assumptions" data-goto="assumptions">assumptions and sources</a></p>`;
+  const infoPop = (anchor, title, html) => openPop(anchor, title, () => ({ node: node(html + MORE) }));
+  function goTo(id) {
+    const d = document.getElementById(id);
+    closePop();
+    d.open = true;
+    d.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+    d.querySelector("summary").focus({ preventScroll: true });
+  }
+
+  function popTask() {
+    const lo = Math.log10(0.1), hi = Math.log10(200000);
+    const n = node(`<div class="optlist">${M.tasks.map((t, i) => `
+      <button type="button" class="opt" data-i="${i}" aria-pressed="${i === state.task}">
+        <span>${esc(t.name)}</span>
+        <span class="mini" style="width:${Math.max(4, ((Math.log10(t.wh[1]) - lo) / (hi - lo)) * 100)}%"></span>
+        <span class="w">${esc(fmtE(t.wh[1] / 1000))}</span>
+      </button>`).join("")}</div><p>Ordered by energy per task, in watt-hours (Wh).</p>`);
+    n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.task = +b.dataset.i; closePop(true); render(); });
+    return { node: n };
+  }
+  function popFreq() {
+    const n = node(`<div class="val" id="pfVal"></div>
+      <input type="range" id="pfRange" min="0" max="${M.frequencies.length - 1}" step="1" value="${state.freq}" aria-label="How often, per person">
+      <p id="pfNote"></p>`);
+    const update = () => {
+      n.querySelector("#pfVal").textContent = M.frequencies[state.freq].label;
+      n.querySelector("#pfRange").setAttribute("aria-valuetext", M.frequencies[state.freq].label);
+      n.querySelector("#pfNote").textContent = isOnce() ? "Each person does it once. The time is the task's own duration." : "Per person, every day of the period.";
+    };
+    n.querySelector("#pfRange").addEventListener("input", (e) => { state.freq = +e.target.value; fixPeriod(); render(); });
+    update();
+    return { node: n, update };
+  }
+  function popPeople() {
+    const list = presetsSorted();
+    const n = node(`<div class="val" id="ppVal"></div><div class="sub" id="ppSub"></div>
+      <input type="range" id="ppRange" min="0" max="${list.length - 1}" step="1" aria-label="How many people">
+      <label class="inline" for="ppNum">Or type a number<input type="number" id="ppNum" min="1" step="1" inputmode="numeric" placeholder="e.g. 12000"></label>
+      <div class="seg" id="ppCountry" role="group" aria-label="People live in">${Object.entries(M.bases).filter(([id]) => id !== "World").map(([id, b]) => `<button type="button" data-id="${id}">${esc(b.label)}</button>`).join("")}</div>
+      <label class="switch" for="ppAdopt"><input type="checkbox" id="ppAdopt"><span>Only people who use AI daily<br><small class="sub" id="ppAdoptNote"></small></span></label>
+      <label class="inline" for="ppShare" id="ppShareWrap">Share who use AI daily, %<input type="number" id="ppShare" min="1" max="100" step="1" inputmode="numeric"></label>`);
+    const range = n.querySelector("#ppRange"), num = n.querySelector("#ppNum");
+    const update = () => {
+      const N = peopleN();
+      n.querySelector("#ppVal").textContent = state.people === "custom" ? peopleLabel() : preset().label;
+      const note = state.people === "custom" ? "" : preset()[state.basis].note;
+      n.querySelector("#ppSub").textContent = state.people === "custom" ? "Your own number" : `${nf(N, 10)} ${N === 1 ? "person" : "people"}${note ? ` · ${note}` : ""}`;
+      let idx = list.findIndex((p) => p.id === state.people);
+      if (idx < 0) idx = list.reduce((best, p, i) => (Math.abs(Math.log(p[state.basis].n / N)) < Math.abs(Math.log(list[best][state.basis].n / N)) ? i : best), 0);
+      range.value = idx;
+      range.setAttribute("aria-valuetext", peopleLabel());
+      n.querySelectorAll("#ppCountry button").forEach((b) => { b.setAttribute("aria-pressed", String(b.dataset.id === basisId())); b.disabled = !!LOCK[state.people]; });
+      n.querySelector("#ppAdopt").checked = adopt();
+      const ref = adoptionRef(), share = n.querySelector("#ppShare");
+      n.querySelector("#ppAdoptNote").innerHTML = `${esc(ref.label)}. ${esc(ref.note)} ${srcLinks(ref.src)}`;
+      n.querySelector("#ppShareWrap").hidden = !adopt();
+      if (document.activeElement !== share) share.value = Math.round(shareV() * 100);
+    };
+    range.addEventListener("input", (e) => { state.people = list[+e.target.value].id; state.share = null; num.value = ""; render(); });
+    num.addEventListener("input", (e) => {
+      const v = Math.round(+e.target.value);
+      if (v >= 1 && v <= 1e11) { state.people = "custom"; state.customN = v; render(); }
+    });
+    n.querySelector("#ppCountry").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !b.disabled) { state.basis = b.dataset.id; render(); } });
+    n.querySelector("#ppAdopt").addEventListener("change", (e) => { state.adoption = e.target.checked; render(); });
+    n.querySelector("#ppShare").addEventListener("input", (e) => { const v = +e.target.value; if (v >= 1 && v <= 100) { state.share = v / 100; render(); } });
+    update();
+    return { node: n, update };
+  }
+  function popPeriod() {
+    const once = isOnce(), t = M.tasks[state.task], own = once && state.own;
+    const ownBtn = once ? `<div class="optlist"><button type="button" class="opt two" data-own="1" aria-pressed="${own}"><span>The task's own time</span><span class="w">${t.dur < 86400 ? "under a day" : `~${esc(fmtD(t.dur))}`}</span></button></div>` : "";
+    const note = once ? "Within a shorter time needs more GPUs at once. The energy stays the same."
+      : M.periods.some((p, i) => !allowedPeriod(i)) ? `Shorter periods are off for ${esc(M.frequencies[state.freq].label.toLowerCase())}.` : "Totals are added up over this period.";
+    const n = node(`${ownBtn}<div class="seg" role="group" aria-label="Time period">${M.periods.map((p, i) =>
+      `<button type="button" data-i="${i}" aria-pressed="${!own && i === state.period}" ${allowedPeriod(i) ? "" : "disabled"}>${esc(p.label)}</button>`).join("")}</div><p>${note}</p>`);
+    n.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-i], button[data-own]"); if (!b || b.disabled) return;
+      if (b.dataset.own) state.own = true; else { state.period = +b.dataset.i; if (once) state.own = false; }
+      closePop(true); render();
+    });
+    return { node: n };
+  }
+  function popGrid() {
+    const n = node(`<div class="optlist">${["us", "eu", "ch", "world", "market"].map((id) => [id, M.grids[id]]).map(([id, g]) => `
+      <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === state.grid}"><span>${esc(g.label)}</span><span class="w">${nf(g.co2 * 1000)} g CO₂/kWh</span></button>`).join("")}</div>
+      <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely.</p><p>${esc(M.grids[state.grid].note)}</p><div class="srcs">${srcLinks(M.grids[state.grid].src)}</div>`);
+    n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.grid = b.dataset.id; closePop(true); render(); });
+    return { node: n };
+  }
+  function popCountry() {
+    const n = node(`<div class="optlist">${Object.entries(M.bases).filter(([id]) => id !== "World").map(([id, b]) => `
+      <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === state.basis}"><span>${esc(b.label)}</span><span class="w">${esc(id)}</span></button>`).join("")}</div>
+      <p>Sets the per-person averages, the city and state sizes, and the share of daily AI users.</p>`);
+    n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.basis = b.dataset.id; closePop(true); render(); });
+    return { node: n };
+  }
+
+  /* ---------- clock */
+  const clockEl = $("#clock");
+  const clock = { frac: 0, key: null, raf: 0 };
+  function clockSkeleton(labels) {
+    let ticks = "";
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * Math.PI * 2, major = i % 5 === 0;
+      const r1 = major ? 72 : 77, r2 = 82;
+      ticks += `<line class="tick${major ? " major" : ""}" x1="${100 + r1 * Math.sin(a)}" y1="${100 - r1 * Math.cos(a)}" x2="${100 + r2 * Math.sin(a)}" y2="${100 - r2 * Math.cos(a)}"/>`;
+    }
+    const ql = labels.map((t, k) => {
+      const a = (k / 4) * Math.PI * 2;
+      return `<text class="ql" x="${100 + 60 * Math.sin(a)}" y="${100 - 60 * Math.cos(a)}">${esc(t)}</text>`;
+    }).join("");
+    clockEl.innerHTML = `<circle class="face" cx="100" cy="100" r="88"/><path class="arc" d=""/>${ticks}${ql}<line class="hand" x1="100" y1="100" x2="100" y2="24"/><circle class="hub" cx="100" cy="100" r="4.5"/>`;
+  }
+  function clockDraw(frac) {
+    const arc = clockEl.querySelector(".arc"), hand = clockEl.querySelector(".hand");
+    const f = Math.max(0, Math.min(1, frac));
+    if (f >= 0.9999) arc.setAttribute("d", "M100 14a86 86 0 1 1 0 172a86 86 0 1 1 0-172z");
+    else if (f <= 0) arc.setAttribute("d", "");
+    else {
+      const a = f * Math.PI * 2;
+      arc.setAttribute("d", `M100 100L100 14A86 86 0 ${f > 0.5 ? 1 : 0} 1 ${100 + 86 * Math.sin(a)} ${100 - 86 * Math.cos(a)}Z`);
+    }
+    hand.setAttribute("transform", `rotate(${f * 360} 100 100)`);
+  }
+  function setClock(r) {
+    const gpuSec = (r.gpuH[1] / SERVER) * 3600, periodSec = r.hours * 3600;
+    let key, max, labels, val, sub;
+    const q = (m, f) => [0, 1, 2, 3].map((k) => (k ? f((m * k) / 4) : ""));
+    const short = (s) => fmtD(s).replace(" days", "d").replace(" min", "m").replace(" h", "h").replace(" s", "s");
+    if (gpuSec > periodSec) {
+      key = `full-${periodSec}`; max = periodSec; labels = q(periodSec, short);
+      val = "Non-stop"; sub = `${fmtCount(r.running[1] / SERVER)} servers for ${r.span}`;
+    } else {
+      if (gpuSec < 60) { key = "s"; max = 60; labels = ["", "15s", "30s", "45s"]; }
+      else if (gpuSec < 3600) { key = "m"; max = 3600; labels = ["", "15m", "30m", "45m"]; }
+      else if (gpuSec < 86400) { key = "h"; max = 86400; labels = ["", "6h", "12h", "18h"]; }
+      else { key = `d-${periodSec}`; max = periodSec; labels = q(periodSec, short); }
+      val = fmtD(gpuSec); sub = `on one ${SERVER}-GPU server`;
+    }
+    clockEl.closest("figure").classList.toggle("full", gpuSec > periodSec);
+    const target = Math.min(1, gpuSec / max);
+    if (key !== clock.key) { clockSkeleton(labels); clock.frac = 0; clock.key = key; }
+    $("#clockVal").textContent = val;
+    $("#clockSub").textContent = sub;
+    cancelAnimationFrame(clock.raf);
+    if (reduced()) { clock.frac = target; clockDraw(target); return; }
+    const from = clock.frac, t0 = performance.now(), dur = 700;
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      clock.frac = from + (target - from) * e; clockDraw(clock.frac);
+      if (p < 1) clock.raf = requestAnimationFrame(step);
+    };
+    clock.raf = requestAnimationFrame(step);
+  }
+
+  /* ---------- zoom (GPU → server → racks → hall → data centres) */
+  const canvas = $("#zoomCanvas");
+  const zoom = { L: null, lit: 0, scale: 1, alpha: 1, raf: 0 };
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const RACKS_PER_DC = (F.dcMW.v * 1000 * F.pue.v) / F.gpuKW.v / F.gpusPerRack.v;
+  function levelFor(r) {
+    const inst = r.running[1], per = F.gpusPerRack.v;
+    if (inst <= SERVER) return { id: 1, v: inst };
+    if (inst <= per * 12) return { id: 2, v: inst };
+    if (r.dcs[1] <= 1) return { id: 3, v: r.racks[1] };
+    const n = r.dcs[1];
+    let k = 1;
+    if (n > 400) { const raw = n / 400, e = Math.pow(10, Math.floor(Math.log10(raw))); k = [1, 2, 5, 10].map((m) => m * e).find((v) => v >= raw); }
+    return { id: 4, v: n / k, k, n };
+  }
+  function zoomCaption(r, L) {
+    switch (L.id) {
+      case 1: return `One ${SERVER}-GPU server, busy ${nf((L.v / SERVER) * 100)}% of the time`;
+      case 2: return `${fmtCount(L.v)} GPUs = ${fmtCount(L.v / SERVER)} servers in ${r.fullRacks[1]} rack${r.fullRacks[1] > 1 ? "s" : ""} of ${F.gpusPerRack.v}`;
+      case 3: return `${fmtCount(r.fullRacks[1])} racks · ${nf(r.dcs[1] * 100)}% of a 100 MW data centre`;
+      default: return `${fmtCount(L.n)} data centres of 100 MW${L.k > 1 ? ` · 1 block = ${fmtCount(L.k)}` : ""}`;
+    }
+  }
+  function setZoom(r) {
+    const L = levelFor(r);
+    const prev = zoom.L;
+    const changed = !prev || prev.id !== L.id || prev.k !== L.k;
+    const from = changed ? 0 : zoom.lit;
+    const scaleFrom = changed && prev ? (L.id > prev.id ? 1.5 : 0.75) : 1;
+    zoom.L = L;
+    $("#zoomCap").textContent = zoomCaption(r, L);
+    cancelAnimationFrame(zoom.raf);
+    if (reduced()) { zoom.lit = L.v; zoom.scale = 1; zoom.alpha = 1; drawZoom(); return; }
+    const t0 = performance.now(), dur = 650;
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      zoom.lit = from + (L.v - from) * e;
+      zoom.scale = scaleFrom + (1 - scaleFrom) * e;
+      zoom.alpha = changed && prev ? e : 1;
+      drawZoom();
+      if (p < 1) zoom.raf = requestAnimationFrame(step);
+    };
+    zoom.raf = requestAnimationFrame(step);
+  }
+  function drawZoom() {
+    const L = zoom.L;
+    if (!L) return;
+    const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+    if (!W || !H) return;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    const c = canvas.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    const hot = cssVar("--hot"), line = cssVar("--line"), faint = cssVar("--faint"), panel = cssVar("--panel");
+    c.save();
+    c.globalAlpha = zoom.alpha;
+    c.translate(W / 2, H / 2); c.scale(zoom.scale, zoom.scale); c.translate(-W / 2, -H / 2);
+    const cell = (x, y, w, h, f) => {
+      c.fillStyle = line; c.fillRect(x, y, w, h);
+      if (f > 0) { c.globalAlpha = zoom.alpha * (0.4 + 0.6 * Math.min(1, f)); c.fillStyle = hot; c.fillRect(x, y, w, h); c.globalAlpha = zoom.alpha; }
+    };
+    const gpu = (x, y, w, h, f) => {
+      c.fillStyle = line; c.fillRect(x, y, w, h);
+      if (f > 0) { c.fillStyle = hot; c.fillRect(x, y, Math.max(1.5, w * Math.min(1, f)), h); }
+      c.fillStyle = panel; const dw = w * 0.36, dh = h * 0.5;
+      c.globalAlpha = zoom.alpha * 0.55; c.fillRect(x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); c.globalAlpha = zoom.alpha;
+    };
+    if (L.id === 1) {
+      const pad = 14, bw = Math.min(W - 40, 420), bh = Math.min(H - 40, 150), bx = (W - bw) / 2, by = (H - bh) / 2;
+      c.strokeStyle = faint; c.lineWidth = 1.5; c.strokeRect(bx, by, bw, bh);
+      const cw = (bw - pad * 2 - 3 * 8) / 4, ch = (bh - pad * 2 - 8) / 2;
+      for (let i = 0; i < 8; i++) gpu(bx + pad + (i % 4) * (cw + 8), by + pad + Math.floor(i / 4) * (ch + 8), cw, ch, zoom.lit - i);
+    } else if (L.id === 2) {
+      const per = F.gpusPerRack.v, show = Math.max(4, Math.ceil(L.v / per));
+      const gap = 10, rw = Math.min(56, (W - 32 - gap * (show - 1)) / show), rh = H - 30;
+      const sx = (W - (rw * show + gap * (show - 1))) / 2;
+      for (let k = 0; k < show; k++) {
+        const x = sx + k * (rw + gap), y = 15;
+        c.strokeStyle = faint; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, rw - 1, rh - 1);
+        const cw = (rw - 10) / 2, ch = (rh - 16) / 16;
+        for (let s = 0; s < per; s++) {
+          const srv = Math.floor(s / 8);
+          cell(x + 5 + (s % 2) * cw + 1, y + 5 + Math.floor(s / 2) * ch + srv * 2 + 1, cw - 2, ch - 2, zoom.lit - (k * per + s));
+        }
+      }
+    } else if (L.id === 3) {
+      const total = Math.round(RACKS_PER_DC), aspect = (W - 24) / (H - 24);
+      const cols = Math.ceil(Math.sqrt(total * aspect * 2.2)), rows = Math.ceil(total / cols);
+      const cw = (W - 24) / cols, ch = (H - 24 - 3 * Math.ceil(rows / 2)) / rows;
+      for (let i = 0; i < total; i++) {
+        const ri = Math.floor(i / cols);
+        cell(12 + (i % cols) * cw + 0.5, 12 + ri * ch + Math.floor(ri / 2) * 3 + 0.5, Math.max(1, cw - 1), Math.max(1, ch - 1), zoom.lit - i);
+      }
+    } else {
+      const full = Math.ceil(L.v), aspect = (W - 24) / (H - 24);
+      const cols = Math.max(1, Math.ceil(Math.sqrt(full * aspect))), rows = Math.ceil(full / cols);
+      const size = Math.min((W - 24) / cols, (H - 24) / rows), ox = (W - cols * size) / 2, oy = (H - rows * size) / 2, g = Math.max(1, size * 0.14);
+      for (let i = 0; i < full; i++) {
+        const f = Math.min(1, zoom.lit - i);
+        if (f <= 0) { c.fillStyle = line; c.fillRect(ox + (i % cols) * size + g / 2, oy + Math.floor(i / cols) * size + g / 2, size - g, size - g); continue; }
+        cell(ox + (i % cols) * size + g / 2, oy + Math.floor(i / cols) * size + g / 2, size - g, size - g, f);
+      }
+    }
+    c.restore();
+  }
+
+  /* ---------- log bar chart */
+  function logChart(container, rows, opts) {
+    const vals = [];
+    rows.forEach((r) => [r.v, r.lo, r.hi].forEach((x) => { if (x > 0 && isFinite(x)) vals.push(x); }));
+    if (!vals.length) { container.innerHTML = ""; return; }
+    let x, grid;
+    if (opts.log) {
+      const d0 = Math.floor(Math.log10(Math.min(...vals)));
+      let d1 = Math.ceil(Math.log10(Math.max(...vals)));
+      if (d1 - d0 < 2) d1 = d0 + 2;
+      const span = d1 - d0, step = span > 12 ? 3 : span > 7 ? 2 : 1;
+      x = (v) => Math.max(0, Math.min(100, ((Math.log10(v) - d0) / span) * 100));
+      grid = [];
+      for (let d = d0; d <= d1; d += step) grid.push(Math.pow(10, d));
+    } else {
+      const raw = Math.max(...vals) / 4, e = Math.pow(10, Math.floor(Math.log10(raw)));
+      const step = [1, 2, 2.5, 5, 10].map((m) => m * e).find((v) => v >= raw);
+      const top = Math.ceil(Math.max(...vals) / step) * step;
+      x = (v) => Math.max(0, Math.min(100, (v / top) * 100));
+      grid = [];
+      for (let v = 0; v <= top + step / 2; v += step) grid.push(v);
+    }
+    const gridHTML = grid.map((g) => `<span class="gridline" style="left:${x(g)}%"></span>`).join("");
+    const wrap = document.createElement("div");
+    wrap.className = `lchart ${opts.log ? "log" : "lin"}`;
+    const ticks = `<div></div><div class="ticks">${grid.map((g) => `<span style="left:${x(g)}%">${g === 0 ? "0" : esc(opts.fmt(g))}</span>`).join("")}</div><div></div>`;
+    if (opts.onScale) {
+      wrap.insertAdjacentHTML("beforeend", `<label class="logtoggle"><input type="checkbox" ${opts.log ? "checked" : ""}> <b>Log scale</b></label>`);
+      wrap.querySelector(".logtoggle input").addEventListener("change", (e) => opts.onScale(e.target.checked));
+    }
+    wrap.insertAdjacentHTML("beforeend", `<div class="axis top" aria-hidden="true">${ticks}</div>`);
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = `lrow ${r.cls || ""} ${r.na ? "na" : ""} ${opts.onClick ? "btn" : ""}`;
+      const ib = r.info ? ` <button type="button" class="info sm" aria-label="About ${esc(r.label)}">i</button>` : "";
+      const lab = opts.onClick ? `<button type="button" class="pick">${esc(r.label)}</button>` : esc(r.label);
+      const name = `<div class="lname"><span class="lt">${lab}${ib}</span>${r.sub ? `<small>${r.sub}</small>` : ""}</div>`;
+      const wh = !r.na && r.lo != null && r.hi > r.lo ? `<span class="whisk" style="left:${x(r.lo)}%;width:${Math.max(0.6, x(r.hi) - x(r.lo))}%"></span>` : "";
+      const track = r.na ? `<div class="track">${esc(r.na)}</div>` : `<div class="track">${gridHTML}${opts.log ? "" : `<span class="bar" style="width:${x(r.v)}%"></span>`}<span class="mk" style="left:${x(r.v)}%"></span>${wh}</div>`;
+      const val = r.na ? `<div class="lval">—</div>` : `<div class="lval">${esc(opts.fmt(r.v))}${r.valSub ? `<small>${r.valSub}</small>` : ""}</div>`;
+      row.innerHTML = name + track + val;
+      if (opts.onClick) {
+        row.addEventListener("click", (e) => { if (!e.target.closest(".info")) opts.onClick(i); });
+      }
+      if (r.info) row.querySelector(".info").addEventListener("click", (e) => { e.stopPropagation(); r.info(e.currentTarget); });
+      if (r.tip) { row.addEventListener("pointermove", (e) => showTip(e, r.tip)); row.addEventListener("pointerleave", hideTip); }
+      wrap.appendChild(row);
+    });
+    const axis = document.createElement("div");
+    axis.className = "axis"; axis.setAttribute("aria-hidden", "true");
+    axis.innerHTML = ticks;
+    wrap.appendChild(axis);
+    container.innerHTML = "";
+    container.appendChild(wrap);
+  }
+  const tip = $("#tip");
+  function showTip(e, text) {
+    tip.textContent = text; tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = e.clientX + 14, top = e.clientY + 14;
+    if (left + w > window.innerWidth - 8) left = e.clientX - w - 14;
+    if (top + h > window.innerHeight - 8) top = e.clientY - h - 14;
+    tip.style.left = `${Math.max(8, left)}px`; tip.style.top = `${Math.max(8, top)}px`;
+  }
+  function hideTip() { tip.hidden = true; }
+
+  /* ---------- power ladder */
+  function rungs() { return M.rungs.map((g) => ({ ...g, w: g.id === "home" ? homeW() : g.w })).sort((a, b) => a.w - b.w); }
+  const RUNG_SAY = {
+    bulb: (n) => `${n} LED bulbs`, kettle: (n) => `${n} kettles`, home: (n) => `the home electricity of ${n} people`,
+    chdc: (n) => `${n}× all Swiss data centres`, goesgen: (n) => `${n} nuclear plants the size of Gösgen`,
+    ch: (n) => `${n}× all of Switzerland's electricity`, dcworld: (n) => `${n}× all data centres worldwide`, world: (n) => `${n}× all electricity worldwide`
+  };
+  function renderPower(r) {
+    const w = r.watts[1], R = rungs();
+    const below = R.filter((g) => g.w <= w).pop(), above = R.find((g) => g.w > w);
+    let say;
+    if (!below) say = `As much as <em>${esc(nf((w / R[0].w) * 100))}%</em> of one LED bulb, non-stop.`;
+    else {
+      const n = w / below.w;
+      say = `As much as <em>${esc(RUNG_SAY[below.id](n >= 1000 ? fmtCount(n) : nf(n)))}</em>, non-stop.`;
+    }
+    $("#powerSay").innerHTML = say;
+    const lo = Math.floor(Math.log10(Math.min(w, R[0].w))) - 0.3, hi = Math.ceil(Math.log10(Math.max(w, R[R.length - 1].w))) + 0.3;
+    const x = (v) => ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * 100;
+    const ticks = [];
+    for (let d = Math.ceil(lo / 3) * 3; d <= hi; d += 3) ticks.push(d);
+    $("#ladder").innerHTML = `<div class="track"></div>${R.map((g, i) =>
+      `<button type="button" class="rung ${i % 2 ? "dn" : "up"} ${g === below || g === above ? "near" : ""}" style="left:${x(g.w)}%" data-id="${g.id}" aria-label="${esc(g.label)}, ${esc(fmtPow(g.w))}">${svgIcon(g.icon)}</button>`).join("")}
+      <span class="you" style="left:${x(w)}%" title="This scenario"></span>
+      ${ticks.map((d) => `<span class="tickl" style="left:${x(Math.pow(10, d))}%">${esc(fmtPow(Math.pow(10, d)))}</span>`).join("")}`;
+    $("#ladder").querySelectorAll(".rung").forEach((b) => {
+      const g = R.find((q) => q.id === b.dataset.id);
+      b.addEventListener("click", () => infoPop(b, g.label, `<div class="val">${esc(fmtPow(g.w))}</div>${g.note ? `<p>${esc(g.note)}</p>` : ""}<div class="srcs">${srcLinks(g.src)}</div>`));
+    });
+    const lab = (g) => `${g.label} (${fmtPow(g.w)})`;
+    $("#powerBetween").textContent = `${fmtPow(w)} on average${below && above ? `, between ${lab(below)} and ${lab(above)}` : ""}. Log scale: 1,000× between labels.`;
+  }
+
+  /* ---------- land, to scale */
+  const LAND_SAY = {
+    card: ["a bank card", "bank cards"], a4: ["an A4 sheet", "A4 sheets"], parking: ["a parking space", "parking spaces"],
+    tennis: ["a tennis court", "tennis courts"], pitch: ["a football pitch", "football pitches"], central: ["Central Park", "× Central Park"],
+    zurich: ["the City of Zurich", "× the City of Zurich"], kzh: ["the canton of Zurich", "× the canton of Zurich"], ch: ["Switzerland", "× Switzerland"]
+  };
+  function renderLand(r) {
+    const a = r.floor[1], st = r.site[1];
+    const ref = M.landRefs.reduce((b, g) => (Math.abs(Math.log(a / g.m2)) < Math.abs(Math.log(a / b.m2)) ? g : b));
+    const ratio = a / ref.m2, [one, many] = LAND_SAY[ref.id];
+    const n = ratio >= 1000 ? fmtCount(ratio) : nf(ratio);
+    $("#landSay").innerHTML = ratio >= 1
+      ? `About <em>${esc(many.startsWith("×") ? `${n}${many}` : `${n} ${many}`)}</em>`
+      : `About <em>${esc(nf(ratio * 100))}%</em> of ${esc(one)}`;
+    const big = Math.max(st, ref.m2), S = 200;
+    const side = (m) => Math.max(1.5, S * Math.sqrt(m / big));
+    const sq = (sd, cls) => `<rect class="${cls}" x="10" y="${210 - sd}" width="${sd}" height="${sd}"/>`;
+    $("#landSvg").innerHTML = sq(side(st), "site") + (a >= ref.m2 ? sq(side(a), "ai") + sq(side(ref.m2), "ref") : sq(side(ref.m2), "ref") + sq(side(a), "ai")) + `<line class="ground" x1="0" y1="210.5" x2="220" y2="210.5"/>`;
+    $("#landLegend").innerHTML = `<span><span class="sw" style="background:var(--hot)"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw site"></span>Whole site: ${esc(fmtA(st))}</span><span><span class="sw" style="border:1.5px dashed var(--muted)"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
+    $("#landMeta").textContent = `Drawn to scale by area, in whole racks of ${F.gpusPerRack.v} GPUs (at least one). Floor includes aisles, cabling, power and cooling rooms and walls; the site adds roads, substations and space between buildings.`;
+  }
+
+  /* ---------- compare */
+  const cmpInfo = (b, c) => infoPop(b, c.label, `<p>${esc(c[basisId()].qty)} per person a year (${esc(M.bases[basisId()].label)}).</p><p>${esc(c.note)}</p><div class="srcs">${srcLinks(c.src)}</div>`);
+  const taskInfo = (b, t) => infoPop(b, t.name, `<p style="color:var(--ink)">${esc(t.desc)}</p><p>${esc(nf(t.wh[1]))} Wh (${esc(nf(t.wh[0]))}–${esc(nf(t.wh[2]))}) per task · ${esc(t.basis)}.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`);
+  function renderCompare(r) {
+    const grp = adopt() ? r.users : r.people;
+    const m = state.metric, ai = r[m], who = grp === 1 ? "1 person" : `${fmtCount(grp, 3)} ${adopt() ? "daily AI users" : "people"}`;
+    const items = M.comparisons.filter((c) => state.compare.has(c.id)).map((c) => {
+      const per = c[basisId()][m];
+      return { c, v: per == null ? null : per * grp * (r.days / 365) };
+    });
+    const out = $("#cmpOut");
+    if (state.view === "bars") {
+      logChart(out, [{ label: "AI, this scenario", v: ai[1], lo: ai[0], hi: ai[2], cls: "ai" }].concat(items.map(({ c, v }) =>
+        v == null ? { label: c.label, na: `no ${METRIC[m]} figure` }
+          : { label: c.label, sub: esc(c[basisId()].qty) + " each a year", v, valSub: `AI = ${fmtRatio(ai[1] / v)}`, tip: `${c.label}: ${FMT[m](v)} for ${who} over ${r.span}`, info: (b) => cmpInfo(b, c) })), { fmt: FMT[m], log: false });
+      return;
+    }
+    const gauge = (ic, ratio) => {
+      if (!(ratio > 0) || !isFinite(ratio)) return "";
+      const one = (f) => `<span class="gi"><svg class="bg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="${ICON[ic]}"/></svg><svg class="fg" viewBox="0 0 24 24" style="clip-path:inset(${100 - (f >= 0.01 ? Math.min(1, f) * 100 : 0)}% 0 0 0)"><path fill-rule="evenodd" d="${ICON[ic]}"/></svg></span>`;
+      if (ratio > 10) return one(1) + `<span class="times">× ${esc(fmtCount(ratio))}</span>`;
+      let s = "";
+      for (let i = 0; i < Math.max(1, Math.ceil(ratio - 0.02)); i++) s += one(ratio - i);
+      return s;
+    };
+    out.innerHTML = `<p class="legend"><span><span class="sw" style="background:var(--line)"></span>1 icon = what ${esc(who)} already use${grp === 1 ? "s" : ""} over ${esc(r.span)}</span><span><span class="sw" style="background:var(--hot)"></span>AI's ${esc(METRIC[m])}: ${esc(FMT[m](ai[1]))}</span></p>`
+      + items.map(({ c, v }) => {
+        const head = `<div class="cname"><span class="t">${esc(c.label)} <button type="button" class="info" data-cmp="${c.id}" aria-label="About ${esc(c.label)}">i</button></span><small>${v == null ? `No ${METRIC[m]} figure` : `${esc(FMT[m](v))} over ${esc(r.span)}`}</small></div>`;
+        if (v == null) return `<div class="crow na">${head}<div class="cgauge">—</div><div class="cratio">—</div></div>`;
+        const ratio = ai[1] / v;
+        return `<div class="crow">${head}<div class="cgauge" role="img" aria-label="AI is ${esc(fmtRatio(ratio))} of this">${gauge(CMP_ICON[c.id], ratio)}</div><div class="cratio">${esc(fmtRatio(ratio))}<small>${ratio >= 1 ? "times" : "of"} what they ${esc(c.phrase)}</small></div></div>`;
+      }).join("");
+    out.querySelectorAll("[data-cmp]").forEach((b) => {
+      const c = M.comparisons.find((q) => q.id === b.dataset.cmp);
+      b.addEventListener("click", () => cmpInfo(b, c));
+    });
+  }
+
+  /* ---------- render */
+  function render() {
+    fixPeriod();
+    const r = compute(), t = r.t;
+    const once = r.once;
+
+    // equation
+    const setTok = (k, text) => document.querySelectorAll(`.tok[data-k="${k}"]`).forEach((b) => { b.textContent = text; });
+    setTok("task", t.name);
+    $("#article").textContent = /^[aeiou]/i.test(t.name) ? "an" : "a";
+    setTok("freq", r.f.label);
+    setTok("people", peopleLabel());
+    const pl = M.periods[state.period].label.toLowerCase();
+    setTok("period", once ? (state.own ? (t.dur < 86400 ? "within a day" : `over ~${fmtD(t.dur)}`) : `within a ${pl}`) : `for a ${pl}`);
+    $("#eqres").textContent = `= ${fmtE(r.kwh[1])} · ${fmtM(r.co2[1])} CO₂`;
+    $("#taskline").hidden = r.count === 1;
+    $("#taskline").innerHTML = `<span>Where one ${esc(t.name.replace(/^./, (ch) => ch.toLowerCase()))} for 1 person = ~${esc(fmtCount(t.tokens))} tokens · ${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
+    $("#infoTask").addEventListener("click", (e) => taskInfo(e.currentTarget, t));
+    document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
+
+    // compute
+    const gpuSec = (r.gpuH[1] / SERVER) * 3600, periodSec = r.hours * 3600;
+    const countTxt = r.count === 1 ? `1 ${t.name.replace(/^./, (ch) => ch.toLowerCase())}` : `${r.count < 1e6 ? nf(Math.round(r.count), 6) : fmtCount(r.count)} ${PLURAL[t.id]}`;
+    $("#computeHead").innerHTML = gpuSec <= periodSec
+      ? `${esc(countTxt)} = <em>one ${SERVER}-GPU server for ${esc(fmtD(gpuSec))}</em>`
+      : `${esc(countTxt)} = <em>${esc(fmtCount(r.running[1]))} GPUs non-stop</em> for ${esc(r.span)}`;
+    $("#computeMeta").textContent = `${fmtCount(r.tokens)} tokens · ${fmtA(r.floor[1])} of data-centre floor`;
+    setZoom(r);
+    setClock(r);
+
+    // footprint
+    const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
+    const stat = (cls, ic, k, v, rng, c, id) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r">${esc(rng)} ${conf(c)}</span></div>`;
+    $("#stats").innerHTML =
+      stat("e", "bolt", "Electricity", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e") +
+      stat("w", "drop", "Water", fmtW(r.water[1]), `${fmtW(r.water[0])} – ${fmtW(r.water[2])}`, "guess", "w") +
+      stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c") +
+      stat("l", "land", "Floor", fmtA(r.floor[1]), `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l");
+    const statInfo = {
+      e: ["Electricity", `<p>${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
+      w: ["Water", `<p>${esc(fmtW(r.waterOn[1]))} evaporated cooling the data centre + ${esc(fmtW(r.waterOff[1]))} at power plants.</p><p>${esc(F.onsiteWater.note)}</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(F.onsiteWater.src.concat(r.g.src))}</div>`],
+      l: ["Floor", `<p>Data-centre floor for ${esc(fmtCount(r.fullRacks[1]))} whole rack${r.fullRacks[1] > 1 ? "s" : ""} (at least one), including aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
+      c: ["CO₂", `<p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. Change the grid in the comparison section.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
+    };
+    $("#stats").querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => infoPop(b, ...statInfo[b.dataset.stat])));
+
+    renderPower(r);
+    renderLand(r);
+
+    // everyday
+    const eqv = { co2: r.co2[1], water: r.water[1], land: r.floor[1] };
+    const homeDays = r.kwh[1] / r.b.homeKWhPerDay;
+    $("#equivs").innerHTML = M.equivalents.map((e) => ({ ...e, n: eqv[e.per] / e.value }))
+      .filter((e) => !(e.id === "pool" && e.n < 1) && !(e.id === "shower" && e.n > 1e7) && !(e.id === "pitch" && e.n < 0.01))
+      .map((e) => `<div class="equiv" title="${esc(e.note || "")}">${svgIcon(EQ_ICON[e.id])}<b>${esc(fmtCount(e.n))}</b><span>${esc(e.label)}</span></div>`).join("")
+      + `<div class="equiv">${svgIcon("house")}<b>${esc(fmtCount(homeDays))}</b><span>days of one person's home electricity (${esc(r.b.short)})</span></div>`;
+
+    // compare
+    const grp = adopt() ? r.users : r.people;
+    $("#cmpWho").textContent = grp === 1 ? "1 person" : `${fmtCount(grp, 3)} ${adopt() ? "daily AI users" : "people"}`;
+    $("#cmpVerb").textContent = grp === 1 ? "uses" : "use";
+    $("#tokCountry").textContent = basisId() === "World" ? "the world" : r.b.label;
+    $("#tokCountry").disabled = !!LOCK[state.people];
+    $("#tokGrid").textContent = r.g.label.replace(/ \(.*\)/, "");
+    document.querySelectorAll("#metric button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === state.metric)));
+    document.querySelectorAll("#view button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === state.view)));
+    $("#cmpChips").innerHTML = M.comparisons.map((c) => `<button type="button" class="chip" data-id="${c.id}" aria-pressed="${state.compare.has(c.id)}">${esc(c.label)}</button>`).join("");
+    renderCompare(r);
+
+    // tasks
+    logChart($("#taskChart"), M.tasks.map((tk, i) => ({
+      label: tk.name, sub: esc(CONF[tk.conf]), v: tk.wh[1], lo: tk.wh[0], hi: tk.wh[2], cls: i === state.task ? "sel" : "",
+      tip: `${tk.name}: ${nf(tk.wh[1])} Wh (${nf(tk.wh[0])}–${nf(tk.wh[2])})`, info: (b) => taskInfo(b, tk)
+    })), { fmt: (wh) => fmtE(wh / 1000), log: state.taskLog, onScale: (on) => { state.taskLog = on; render(); }, onClick: (i) => { state.task = i; render(); } });
+
+    if (pop.update) pop.update();
+  }
+
+  /* ---------- static content */
+  function renderStatic() {
+    $("#scenarios").innerHTML = M.scenarios.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.label)}</button>`).join("");
+    $("#uncTable tbody").innerHTML = M.uncertainty.map((u) => `<tr><td>${esc(u.what)}</td><td><span class="pill ${u.level}">${CONF[u.level]}</span></td><td>${esc(u.why)}</td><td class="srcs">${u.src ? srcLinks(u.src) : "—"}</td></tr>`).join("");
+    $("#method").innerHTML = [
+      "Tasks = people × share using AI × uses per day × days. “Once” = each person once, over the task's own duration.",
+      "Electricity = tasks × electricity per task, including data-centre overhead.",
+      `GPU time = electricity ÷ (${F.gpuKW.v} kW per H100-class GPU, all-in, × ${F.draw.v * 100}% average draw). Server time = GPU time ÷ ${SERVER}.`,
+      `GPUs = GPU time ÷ hours in the period. Racks = GPUs ÷ ${F.gpusPerRack.v}. Data centres = IT power ÷ ${F.dcMW.v} MW.`,
+      "Floor and site = whole racks (at least one) × IT power per rack × area per MW.",
+      "Power draw = electricity ÷ hours in the period.",
+      "Water = electricity × (cooling + power-plant water). CO₂ = electricity × grid carbon intensity.",
+      "Comparisons: per-person averages for everyone in the group, over the same period: Swiss or US averages, and world averages for the world. Training and hardware manufacturing are not included."
+    ].map((s) => `<li>${esc(s)}</li>`).join("");
+    const frow = (f, val) => `<tr><td>${esc(f.label)}</td><td class="num">${esc(val)}</td><td>${esc(f.note)}</td><td class="srcs">${srcLinks(f.src)}</td></tr>`;
+    const tri = (v, u) => `${nf(v[1])} ${u} (${nf(v[0])}–${nf(v[2])})`;
+    $("#factorTable tbody").innerHTML = frow(F.gpuKW, `${F.gpuKW.v} kW`) + frow(F.pue, `${F.pue.v} (${F.pue.range.join("–")})`)
+      + frow(F.draw, `${F.draw.v * 100}% (${F.draw.range.map((x) => x * 100).join("–")}%)`) + frow(F.serverGPUs, `${SERVER}`) + frow(F.gpusPerRack, `${F.gpusPerRack.v}`) + frow(F.dcMW, `${F.dcMW.v} MW`)
+      + frow(F.buildingM2perMW, tri(F.buildingM2perMW.v, "m²/MW")) + frow(F.landM2perMW, tri(F.landM2perMW.v, "m²/MW")) + frow(F.onsiteWater, tri(F.onsiteWater.v, "L/kWh"))
+      + Object.values(M.grids).map((g) => `<tr><td>${esc(g.label)}</td><td class="num">${nf(g.co2 * 1000)} g/kWh<br>${nf(g.water)} L/kWh</td><td>${esc(g.note)}</td><td class="srcs">${srcLinks(g.src)}</td></tr>`).join("");
+    const cell = (d) => `${esc(d.qty)}<br>${d.co2 != null ? nf(d.co2, 3) + " kg CO₂" : "—"} · ${d.kwh != null ? nf(d.kwh, 3) + " kWh" : "—"} · ${d.water != null ? fmtW(d.water) : "—"}`;
+    $("#baseTable tbody").innerHTML = M.comparisons.map((c) => `<tr><td>${esc(c.label)}</td><td class="num">${cell(c.CH)}</td><td class="num">${cell(c.US)}</td><td class="num">${cell(c.World)}</td><td>${esc(c.note)}</td><td class="srcs">${srcLinks(c.src)}</td></tr>`).join("");
+    $("#presetTable tbody").innerHTML = M.presets.map((p) => `<tr><td>${esc(p.label)}</td><td class="num">${nf(p.CH.n, 10)}${p.CH.note ? `<br><small>${esc(p.CH.note)}</small>` : ""}</td><td class="num">${nf(p.US.n, 10)}${p.US.note ? `<br><small>${esc(p.US.note)}</small>` : ""}</td></tr>`).join("");
+    $("#sourceList").innerHTML = Object.values(M.sources).map((s) => `<li><a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a> <span class="d">${esc(s.d)}</span></li>`).join("");
+    $("#prior").innerHTML = M.priorArt.map((p) => `<div><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a><br>${esc(p.what)}</div>`).join("");
+  }
+
+  /* ---------- events */
+  function bind() {
+    const POPS = { task: ["Task", popTask], freq: ["How often, per person", popFreq], people: ["How many people", popPeople], period: ["Time period", popPeriod] };
+    document.querySelectorAll(".tok[data-k]").forEach((b) => b.addEventListener("click", (e) => openPop(e.currentTarget, ...POPS[b.dataset.k])));
+    $("#tokGrid").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
+    $("#tokCountry").addEventListener("click", (e) => openPop(e.currentTarget, "People live in", popCountry));
+    $("#infoCompute").addEventListener("click", (e) => infoPop(e.currentTarget, "How compute is estimated",
+      `<p>GPU time = electricity ÷ ${F.gpuKW.v} kW per H100-class GPU, all-in, at ${F.draw.v * 100}% of peak on average. Spare capacity kept idle is not counted.</p><p>One request runs on one copy of the model, usually one ${SERVER}-GPU server, shared with many other requests at once. A bigger task takes longer rather than using more servers: tokens are generated one after another. Many people at once need many servers.</p><p>${F.gpusPerRack.v} GPUs per rack, ${F.dcMW.v} MW data centres.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(["epoch", "dgx", "superpod", "epochdc", "nebius"])}</div>`));
+    $("#infoPower").addEventListener("click", (e) => infoPop(e.currentTarget, "Power draw",
+      `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
+    $("#toSources").addEventListener("click", (e) => { e.preventDefault(); $("#assumptions").open = true; goTo("sure"); });
+    pop.el.addEventListener("click", (e) => { const a = e.target.closest("[data-goto]"); if (a) { e.preventDefault(); goTo(a.dataset.goto); } });
+    $("#infoCompare").addEventListener("click", (e) => infoPop(e.currentTarget, "About the comparisons",
+      `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Switzerland, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
+    $("#infoLand").addEventListener("click", (e) => infoPop(e.currentTarget, "Data-centre land",
+      `<p>Counted in whole racks, at least one, since a share of a GPU still sits in a rack. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
+    $("#infoTasks").addEventListener("click", (e) => infoPop(e.currentTarget, "Every task",
+      `<p>Electricity for one task, once. Log scale: each gridline is 10× the one before. Whiskers show the low–high range. Click a row to pick that task.</p>`));
+    $("#metric").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.metric = b.dataset.v; render(); } });
+    $("#view").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.view = b.dataset.v; render(); } });
+    $("#cmpChips").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.compare.has(b.dataset.id) ? state.compare.delete(b.dataset.id) : state.compare.add(b.dataset.id);
+      render();
+    });
+    $("#scenarios").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const s = M.scenarios[+b.dataset.i].s;
+      Object.assign(state, {
+        task: M.tasks.findIndex((t) => t.id === s.task), freq: M.frequencies.findIndex((f) => f.id === s.freq),
+        people: s.people, period: M.periods.findIndex((p) => p.id === s.period), own: true, share: null, adoption: s.adoption ?? null, basis: s.basis || state.basis
+      });
+      render();
+      b.setAttribute("aria-pressed", "true");
+      window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
+    });
+    pop.scrim.addEventListener("click", () => closePop());
+    pop.el.addEventListener("focusout", (e) => { const t = e.relatedTarget; if (pop.anchor && t && !pop.el.contains(t) && t !== pop.anchor) closePop(); });
+    // tabbing past either end returns to the control that opened it
+    pop.el.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab") return;
+      const f = [...pop.el.querySelectorAll("a, button, input")].filter((n) => !n.disabled && n.offsetParent);
+      if (!f.length) return;
+      if (!e.shiftKey && document.activeElement === f[f.length - 1]) closePop(true);
+      else if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); closePop(true); }
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (pop.anchor && !pop.el.contains(e.target) && !pop.anchor.contains(e.target) && e.target !== pop.scrim) closePop();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(true); });
+    window.addEventListener("resize", placePop);
+    window.addEventListener("scroll", () => { if (pop.anchor && !pop.el.classList.contains("sheet")) placePop(); }, { passive: true });
+    if ("IntersectionObserver" in window) {
+      // fixed overlay, so showing it never shifts the page
+      const mini = $("#minibar");
+      new IntersectionObserver(([en]) => {
+        const show = !en.isIntersecting && en.boundingClientRect.top < 0;
+        mini.classList.toggle("show", show);
+        mini.inert = !show;
+        if (!show && pop.anchor && mini.contains(pop.anchor)) closePop();
+      }).observe($("#eqbar"));
+    }
+    let raf = 0;
+    const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawZoom); };
+    if ("ResizeObserver" in window) new ResizeObserver(redraw).observe(canvas); else window.addEventListener("resize", redraw);
+    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) { /* old browsers */ }
+    new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+
+  renderStatic();
+  bind();
+  render();
+})();

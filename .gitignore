@@ -1,0 +1,4 @@
+# build output (python3 build.py)
+dist/
+.DS_Store
+reviews/

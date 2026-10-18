@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Compute Footprint</title>
+<meta name="description" content="The GPUs, electricity, water and CO₂ behind AI tasks, from one person to the whole world, next to beef, coal, driving and flying.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/styles.css?v=1">
+</head>
+<body>
+<!--BODY-START-->
+<div class="wrap">
+  <header class="top" id="top">
+    <h1>AI Compute Footprint</h1>
+    <p class="lead">How much compute, energy, time and space does it take to generate <span id="article">a</span>:</p>
+  </header>
+
+  <div class="eqbar" id="eqbar">
+    <div class="eq" role="group" aria-label="Scenario">
+      <button type="button" class="tok" data-k="task" aria-haspopup="dialog" aria-expanded="false" aria-label="Task"></button>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="freq" aria-haspopup="dialog" aria-expanded="false" aria-label="How often"></button></span>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="people" aria-haspopup="dialog" aria-expanded="false" aria-label="How many people"></button></span>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="period" aria-haspopup="dialog" aria-expanded="false" aria-label="Time period"></button></span>
+    </div>
+  </div>
+
+
+  <section class="panel hero" aria-labelledby="computeHead">
+    <p class="big" id="computeHead">—</p>
+    <div class="hero-grid">
+      <figure class="zoom">
+        <canvas id="zoomCanvas" role="img" aria-label="Hardware needed"></canvas>
+        <figcaption id="zoomCap">—</figcaption>
+      </figure>
+      <figure class="clockfig">
+        <svg id="clock" class="clock" viewBox="0 0 200 200" role="img" aria-label="GPU time"></svg>
+        <figcaption><b id="clockVal">—</b><span id="clockSub">—</span></figcaption>
+      </figure>
+    </div>
+    <p class="meta"><span id="computeMeta">—</span> <button type="button" class="info" id="infoCompute" aria-label="How compute is estimated">i</button></p>
+    <p class="taskline" id="taskline"></p>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Footprint"></section>
+  <p class="srclink"><a href="#sure" id="toSources">See all sources and assumptions at end of page ↓</a></p>
+
+  <section class="panel block" aria-labelledby="powerTitle">
+    <div class="row-head"><h2 id="powerTitle">Power draw</h2><button type="button" class="info" id="infoPower" aria-label="About power draw">i</button></div>
+    <p class="say" id="powerSay">—</p>
+    <div class="ladder" id="ladder"></div>
+    <p class="meta" id="powerBetween">—</p>
+  </section>
+
+  <section class="panel block" aria-labelledby="landTitle">
+    <div class="row-head"><h2 id="landTitle">Data-centre land</h2><button type="button" class="info" id="infoLand" aria-label="About data-centre land">i</button></div>
+    <div class="land">
+      <svg id="landSvg" viewBox="0 0 220 220" role="img" aria-label="Land to scale"></svg>
+      <div class="land-text">
+        <p class="say" id="landSay">—</p>
+        <p class="legend" id="landLegend"></p>
+        <p class="meta" id="landMeta">—</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel block" aria-labelledby="eqTitle">
+    <h2 id="eqTitle">Footprint in everyday terms</h2>
+    <div class="equivs" id="equivs"></div>
+  </section>
+
+  <section class="panel block" aria-labelledby="cmpTitle">
+    <h2 id="cmpTitle" class="cmp-title">Compared with what <span id="cmpWho">—</span> in <button type="button" class="tok sm" id="tokCountry" aria-haspopup="dialog" aria-expanded="false"></button> already <span id="cmpVerb">use</span></h2>
+    <p class="meta">AI running on the <button type="button" class="tok sm" id="tokGrid" aria-haspopup="dialog" aria-expanded="false"></button> <button type="button" class="info" id="infoCompare" aria-label="About the comparisons">i</button></p>
+    <div class="cmp-controls">
+      <div class="seg" id="metric" role="group" aria-label="Measure">
+        <button type="button" data-v="co2">CO₂</button>
+        <button type="button" data-v="kwh">Energy</button>
+        <button type="button" data-v="water">Water</button>
+      </div>
+      <div class="seg" id="view" role="group" aria-label="View">
+        <button type="button" data-v="bars">Chart</button>
+        <button type="button" data-v="icons">Icons</button>
+      </div>
+    </div>
+    <div class="chips" id="cmpChips" aria-label="Choose comparisons"></div>
+    <div id="cmpOut"></div>
+  </section>
+
+  <section class="panel block" aria-labelledby="ladderTitle">
+    <div class="row-head"><h2 id="ladderTitle">Every task, ordered by energy used</h2><button type="button" class="info" id="infoTasks" aria-label="About this chart">i</button></div>
+    <div id="taskChart"></div>
+  </section>
+
+  <section class="panel block" aria-labelledby="tryTitle">
+    <h2 id="tryTitle">Try a scenario</h2>
+    <div class="scenarios" id="scenarios"></div>
+  </section>
+
+  <div class="more">
+    <details id="sure">
+      <summary>How sure is this?</summary>
+      <p class="why">If you can point me to better data, please get in touch via <a href="https://github.com/heyyeah/AI_Compute_Footprint/issues" target="_blank" rel="noopener">GitHub</a>.</p>
+      <div class="tablewrap"><table id="uncTable"><thead><tr><th>What</th><th>Confidence</th><th>Why</th><th>Sources</th></tr></thead><tbody></tbody></table></div>
+    </details>
+    <details id="assumptions">
+      <summary>Assumptions and sources</summary>
+      <ol class="method" id="method"></ol>
+      <h3>Infrastructure and grids</h3>
+      <div class="tablewrap"><table id="factorTable"><thead><tr><th>Factor</th><th>Value</th><th>Note</th><th>Sources</th></tr></thead><tbody></tbody></table></div>
+      <h3>Per person per year</h3>
+      <div class="tablewrap"><table id="baseTable"><thead><tr><th>Item</th><th>CH</th><th>US</th><th>World</th><th>Note</th><th>Sources</th></tr></thead><tbody></tbody></table></div>
+      <h3>Group sizes</h3>
+      <div class="tablewrap"><table id="presetTable"><thead><tr><th>Preset</th><th>Switzerland</th><th>USA</th></tr></thead><tbody></tbody></table></div>
+      <h3>All sources</h3>
+      <ol class="sources" id="sourceList"></ol>
+    </details>
+    <details>
+      <summary>Related projects</summary>
+      <div class="prior" id="prior"></div>
+    </details>
+    <details>
+      <summary>Why I made this</summary>
+      <p class="why">I use AI both locally and from the cloud providers, and wanted to see what it takes physically: the energy, water and land behind everyday tasks, next to things we already do.</p>
+    </details>
+  </div>
+
+  <footer>Tim Plaisted. Collaborators welcome -> Github. Data and code (MIT, CC BY 4.0) at: <a class="repo" href="https://github.com/heyyeah/AI_Compute_Footprint" target="_blank" rel="noopener"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>github.com/heyyeah/AI_Compute_Footprint</a></footer>
+</div>
+<div class="minibar" id="minibar" inert>
+  <div class="minibar-in">
+    <div class="eq" role="group" aria-label="Scenario">
+      <button type="button" class="tok" data-k="task" aria-haspopup="dialog" aria-expanded="false" aria-label="Task"></button>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="freq" aria-haspopup="dialog" aria-expanded="false" aria-label="How often"></button></span>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="people" aria-haspopup="dialog" aria-expanded="false" aria-label="How many people"></button></span>
+      <span class="grp"><span class="op" aria-hidden="true">×</span> <button type="button" class="tok" data-k="period" aria-haspopup="dialog" aria-expanded="false" aria-label="Time period"></button></span>
+    </div>
+    <span class="eqres" id="eqres" aria-hidden="true"></span>
+  </div>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<div class="pop" id="pop" role="dialog" aria-modal="false" hidden></div>
+<div class="tip" id="tip" hidden></div>
+<!--BODY-END-->
+<script src="data/model.js?v=1"></script>
+<script src="assets/app.js?v=1"></script>
+</body>
+</html>
