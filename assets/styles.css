@@ -100,29 +100,13 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 
 /* hero */
-.hero { padding: 18px 20px; display: grid; gap: 12px; }
-.big { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(26px, 4vw, 38px); line-height: 1.08; }
+.hero { padding: 14px 20px; display: grid; gap: 6px; }
+.big { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(20px, 2.6vw, 26px); line-height: 1.15; }
 .big em { font-style: normal; color: var(--hot); }
-.hero-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 18px; align-items: center; }
-@media (max-width: 640px) { .hero-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 10px; } }
 figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
 figcaption { font-size: 13px; color: var(--muted); }
-.zoom canvas { width: 100%; height: 230px; display: block; border-radius: 4px; background: var(--bg); }
-@media (max-width: 640px) { .zoom canvas { height: 130px; } }
-.clockfig { justify-items: center; text-align: center; }
-.clockfig svg { width: 100%; max-width: min(210px, 60vw); height: auto; display: block; }
-@media (max-width: 640px) { .clockfig svg { max-width: 110px; } .clockfig.full svg { display: none; } }
 footer .repo { white-space: nowrap; }
 footer .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; fill: currentColor; }
-.clockfig figcaption { display: grid; gap: 0; }
-.clockfig figcaption b { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--ink); line-height: 1.1; }
-.clock .face { fill: var(--bg); stroke: var(--line); stroke-width: 2; }
-.clock .tick { stroke: var(--faint); stroke-width: 1; }
-.clock .tick.major { stroke: var(--muted); stroke-width: 2; }
-.clock .ql { fill: var(--muted); font-family: var(--font-mono); font-size: 9px; text-anchor: middle; dominant-baseline: middle; }
-.clock .arc { fill: var(--hot); opacity: .7; }
-.clock .hand { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
-.clock .hub { fill: var(--ink); }
 .meta { margin: 0; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 /* footprint stats */
@@ -218,8 +202,8 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin
 .lval small { display: block; color: var(--muted); font-size: 10.5px; }
 .track { position: relative; height: 22px; }
 .track .gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
-.track .bar { position: absolute; left: 0; top: 7px; height: 8px; border-radius: 0 2px 2px 0; background: var(--muted); opacity: .45; }
-.lrow.ai .bar, .lrow.sel .bar { background: var(--hot); opacity: .7; }
+.track .bar { position: absolute; left: 0; top: 5px; height: 12px; min-width: 3px; border-radius: 0 2px 2px 0; background: var(--muted); opacity: .55; }
+.lrow.ai .bar, .lrow.sel .bar { background: var(--hot); opacity: 1; }
 .mk { position: absolute; top: 5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--muted); z-index: 1; }
 .lrow.ai .mk, .lrow.sel .mk { background: var(--hot); }
 .pick { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
@@ -292,7 +276,6 @@ ol.sources .d { color: var(--muted); }
 .logtoggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; margin-bottom: 4px; justify-self: start; }
 .logtoggle input { width: 16px; height: 16px; accent-color: var(--cold); }
 .axis.top .ticks span { bottom: 2px; }
-.srclink { margin: -8px 0 0; font-size: 13px; text-align: right; }
 #sure, #assumptions { scroll-margin-top: 64px; }
 .more-links { border-top: 1px solid var(--line); padding-top: 8px; font-size: 12.5px; }
 .info.sm { width: 17px; height: 17px; font-size: 10.5px; border-width: 1.5px; margin-left: 4px; vertical-align: -2px; }
@@ -314,10 +297,9 @@ footer { color: var(--muted); font-size: 12.5px; }
   .wrap { padding-block: 16px 40px; gap: 12px; padding-inline: 14px; }
   h1 { font-size: 32px; }
   .lead { font-size: 14px; }
-  .hero { padding: 14px; gap: 10px; }
-  .big { font-size: 23px; }
-  .zoom figcaption, .clockfig figcaption span, .taskline, .meta { font-size: 12px; }
-  .clockfig figcaption b { font-size: 20px; }
+  .hero { padding: 12px 14px; gap: 6px; }
+  .big { font-size: 19px; }
+  .taskline, .meta { font-size: 12px; }
   .stat { padding: 10px 12px; grid-template-columns: minmax(0, 1fr) auto; }
   .stat .ico { display: none; }
   .stat .v { grid-column: 1 / -1; font-size: 22px; }

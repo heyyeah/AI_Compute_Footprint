@@ -46,13 +46,17 @@
   const CMP_ICON = { beef: "steak", coal: "coal", car: "car", flight: "plane", power: "house", water: "glass", total: "person" };
   const EQ_ICON = { burger: "burger", carkm: "car", zrhlon: "plane", shower: "drop", pool: "pool" };
 
-  // visitors in American time zones start with US averages
+  // visitors in American or Australian time zones start with their own averages
   function guessBasis() {
-    try { return /^America\//.test(Intl.DateTimeFormat().resolvedOptions().timeZone) ? "US" : "CH"; } catch (e) { return "CH"; }
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return /^America\//.test(tz) ? "US" : /^Australia\//.test(tz) ? "AU" : "CH";
+    } catch (e) { return "CH"; }
   }
+  const BASIS = guessBasis();
   const state = {
     task: 0, freq: 6, people: "person", customN: null, period: 3, own: true, adoption: null, share: null,
-    basis: guessBasis(), grid: "eu", metric: "co2", view: "bars",
+    basis: BASIS, grid: BASIS === "AU" ? "au" : "eu", metric: "co2", view: "bars",
     compare: new Set(["beef", "coal", "car", "flight", "total"]), taskLog: true
   };
 
@@ -141,8 +145,8 @@
     if (p.id === "person") return `1 person${pct ? ` (${pct})` : ""}`;
     return `${p.label} (${compact.format(n)}${pct ? `, ${pct}` : ""})`;
   }
-  // Switzerland, USA and world presets use their own averages
-  const LOCK = { smallcountry: "CH", bigcountry: "US", world: "World" };
+  // country and world presets use their own averages
+  const LOCK = { smallcountry: "CH", midcountry: "AU", bigcountry: "US", world: "World" };
   const basisId = () => LOCK[state.people] || state.basis;
   const adoptionRef = () => (state.people !== "custom" && preset().work ? M.bases[basisId()].work : M.bases[basisId()].adoption);
   const shareV = () => (state.share != null ? state.share : adoptionRef().v);
@@ -302,9 +306,9 @@
     return { node: n };
   }
   function popGrid() {
-    const n = node(`<div class="optlist">${["us", "eu", "ch", "world", "market"].map((id) => [id, M.grids[id]]).map(([id, g]) => `
+    const n = node(`<div class="optlist">${["us", "eu", "ch", "au", "world", "market"].map((id) => [id, M.grids[id]]).map(([id, g]) => `
       <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === state.grid}"><span>${esc(g.label)}</span><span class="w">${nf(g.co2 * 1000)} g CO₂/kWh</span></button>`).join("")}</div>
-      <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely.</p><p>${esc(M.grids[state.grid].note)}</p><div class="srcs">${srcLinks(M.grids[state.grid].src)}</div>`);
+      <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely; for users in Australia, Sydney and Melbourne.</p><p>${esc(M.grids[state.grid].note)}</p><div class="srcs">${srcLinks(M.grids[state.grid].src)}</div>`);
     n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.grid = b.dataset.id; closePop(true); render(); });
     return { node: n };
   }
@@ -314,170 +318,6 @@
       <p>Sets the per-person averages, the city and state sizes, and the share of daily AI users.</p>`);
     n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.basis = b.dataset.id; closePop(true); render(); });
     return { node: n };
-  }
-
-  /* ---------- clock */
-  const clockEl = $("#clock");
-  const clock = { frac: 0, key: null, raf: 0 };
-  function clockSkeleton(labels) {
-    let ticks = "";
-    for (let i = 0; i < 60; i++) {
-      const a = (i / 60) * Math.PI * 2, major = i % 5 === 0;
-      const r1 = major ? 72 : 77, r2 = 82;
-      ticks += `<line class="tick${major ? " major" : ""}" x1="${100 + r1 * Math.sin(a)}" y1="${100 - r1 * Math.cos(a)}" x2="${100 + r2 * Math.sin(a)}" y2="${100 - r2 * Math.cos(a)}"/>`;
-    }
-    const ql = labels.map((t, k) => {
-      const a = (k / 4) * Math.PI * 2;
-      return `<text class="ql" x="${100 + 60 * Math.sin(a)}" y="${100 - 60 * Math.cos(a)}">${esc(t)}</text>`;
-    }).join("");
-    clockEl.innerHTML = `<circle class="face" cx="100" cy="100" r="88"/><path class="arc" d=""/>${ticks}${ql}<line class="hand" x1="100" y1="100" x2="100" y2="24"/><circle class="hub" cx="100" cy="100" r="4.5"/>`;
-  }
-  function clockDraw(frac) {
-    const arc = clockEl.querySelector(".arc"), hand = clockEl.querySelector(".hand");
-    const f = Math.max(0, Math.min(1, frac));
-    if (f >= 0.9999) arc.setAttribute("d", "M100 14a86 86 0 1 1 0 172a86 86 0 1 1 0-172z");
-    else if (f <= 0) arc.setAttribute("d", "");
-    else {
-      const a = f * Math.PI * 2;
-      arc.setAttribute("d", `M100 100L100 14A86 86 0 ${f > 0.5 ? 1 : 0} 1 ${100 + 86 * Math.sin(a)} ${100 - 86 * Math.cos(a)}Z`);
-    }
-    hand.setAttribute("transform", `rotate(${f * 360} 100 100)`);
-  }
-  function setClock(r) {
-    const gpuSec = (r.gpuH[1] / SERVER) * 3600, periodSec = r.hours * 3600;
-    let key, max, labels, val, sub;
-    const q = (m, f) => [0, 1, 2, 3].map((k) => (k ? f((m * k) / 4) : ""));
-    const short = (s) => fmtD(s).replace(" days", "d").replace(" min", "m").replace(" h", "h").replace(" s", "s");
-    if (gpuSec > periodSec) {
-      key = `full-${periodSec}`; max = periodSec; labels = q(periodSec, short);
-      val = "Non-stop"; sub = `${fmtCount(r.running[1] / SERVER)} servers for ${r.span}`;
-    } else {
-      if (gpuSec < 60) { key = "s"; max = 60; labels = ["", "15s", "30s", "45s"]; }
-      else if (gpuSec < 3600) { key = "m"; max = 3600; labels = ["", "15m", "30m", "45m"]; }
-      else if (gpuSec < 86400) { key = "h"; max = 86400; labels = ["", "6h", "12h", "18h"]; }
-      else { key = `d-${periodSec}`; max = periodSec; labels = q(periodSec, short); }
-      val = fmtD(gpuSec); sub = `on one ${SERVER}-GPU server`;
-    }
-    clockEl.closest("figure").classList.toggle("full", gpuSec > periodSec);
-    const target = Math.min(1, gpuSec / max);
-    if (key !== clock.key) { clockSkeleton(labels); clock.frac = 0; clock.key = key; }
-    $("#clockVal").textContent = val;
-    $("#clockSub").textContent = sub;
-    cancelAnimationFrame(clock.raf);
-    if (reduced()) { clock.frac = target; clockDraw(target); return; }
-    const from = clock.frac, t0 = performance.now(), dur = 700;
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      clock.frac = from + (target - from) * e; clockDraw(clock.frac);
-      if (p < 1) clock.raf = requestAnimationFrame(step);
-    };
-    clock.raf = requestAnimationFrame(step);
-  }
-
-  /* ---------- zoom (GPU → server → racks → hall → data centres) */
-  const canvas = $("#zoomCanvas");
-  const zoom = { L: null, lit: 0, scale: 1, alpha: 1, raf: 0 };
-  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const RACKS_PER_DC = (F.dcMW.v * 1000 * F.pue.v) / F.gpuKW.v / F.gpusPerRack.v;
-  function levelFor(r) {
-    const inst = r.running[1], per = F.gpusPerRack.v;
-    if (inst <= SERVER) return { id: 1, v: inst };
-    if (inst <= per * 12) return { id: 2, v: inst };
-    if (r.dcs[1] <= 1) return { id: 3, v: r.racks[1] };
-    const n = r.dcs[1];
-    let k = 1;
-    if (n > 400) { const raw = n / 400, e = Math.pow(10, Math.floor(Math.log10(raw))); k = [1, 2, 5, 10].map((m) => m * e).find((v) => v >= raw); }
-    return { id: 4, v: n / k, k, n };
-  }
-  function zoomCaption(r, L) {
-    switch (L.id) {
-      case 1: return `One ${SERVER}-GPU server, busy ${nf((L.v / SERVER) * 100)}% of the time`;
-      case 2: return `${fmtCount(L.v)} GPUs = ${fmtCount(L.v / SERVER)} servers in ${r.fullRacks[1]} rack${r.fullRacks[1] > 1 ? "s" : ""} of ${F.gpusPerRack.v}`;
-      case 3: return `${fmtCount(r.fullRacks[1])} racks · ${nf(r.dcs[1] * 100)}% of a 100 MW data centre`;
-      default: return `${fmtCount(L.n)} data centres of 100 MW${L.k > 1 ? ` · 1 block = ${fmtCount(L.k)}` : ""}`;
-    }
-  }
-  function setZoom(r) {
-    const L = levelFor(r);
-    const prev = zoom.L;
-    const changed = !prev || prev.id !== L.id || prev.k !== L.k;
-    const from = changed ? 0 : zoom.lit;
-    const scaleFrom = changed && prev ? (L.id > prev.id ? 1.5 : 0.75) : 1;
-    zoom.L = L;
-    $("#zoomCap").textContent = zoomCaption(r, L);
-    cancelAnimationFrame(zoom.raf);
-    if (reduced()) { zoom.lit = L.v; zoom.scale = 1; zoom.alpha = 1; drawZoom(); return; }
-    const t0 = performance.now(), dur = 650;
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      zoom.lit = from + (L.v - from) * e;
-      zoom.scale = scaleFrom + (1 - scaleFrom) * e;
-      zoom.alpha = changed && prev ? e : 1;
-      drawZoom();
-      if (p < 1) zoom.raf = requestAnimationFrame(step);
-    };
-    zoom.raf = requestAnimationFrame(step);
-  }
-  function drawZoom() {
-    const L = zoom.L;
-    if (!L) return;
-    const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
-    if (!W || !H) return;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    const c = canvas.getContext("2d");
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
-    const hot = cssVar("--hot"), line = cssVar("--line"), faint = cssVar("--faint"), panel = cssVar("--panel");
-    c.save();
-    c.globalAlpha = zoom.alpha;
-    c.translate(W / 2, H / 2); c.scale(zoom.scale, zoom.scale); c.translate(-W / 2, -H / 2);
-    const cell = (x, y, w, h, f) => {
-      c.fillStyle = line; c.fillRect(x, y, w, h);
-      if (f > 0) { c.globalAlpha = zoom.alpha * (0.4 + 0.6 * Math.min(1, f)); c.fillStyle = hot; c.fillRect(x, y, w, h); c.globalAlpha = zoom.alpha; }
-    };
-    const gpu = (x, y, w, h, f) => {
-      c.fillStyle = line; c.fillRect(x, y, w, h);
-      if (f > 0) { c.fillStyle = hot; c.fillRect(x, y, Math.max(1.5, w * Math.min(1, f)), h); }
-      c.fillStyle = panel; const dw = w * 0.36, dh = h * 0.5;
-      c.globalAlpha = zoom.alpha * 0.55; c.fillRect(x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); c.globalAlpha = zoom.alpha;
-    };
-    if (L.id === 1) {
-      const pad = 14, bw = Math.min(W - 40, 420), bh = Math.min(H - 40, 150), bx = (W - bw) / 2, by = (H - bh) / 2;
-      c.strokeStyle = faint; c.lineWidth = 1.5; c.strokeRect(bx, by, bw, bh);
-      const cw = (bw - pad * 2 - 3 * 8) / 4, ch = (bh - pad * 2 - 8) / 2;
-      for (let i = 0; i < 8; i++) gpu(bx + pad + (i % 4) * (cw + 8), by + pad + Math.floor(i / 4) * (ch + 8), cw, ch, zoom.lit - i);
-    } else if (L.id === 2) {
-      const per = F.gpusPerRack.v, show = Math.max(4, Math.ceil(L.v / per));
-      const gap = 10, rw = Math.min(56, (W - 32 - gap * (show - 1)) / show), rh = H - 30;
-      const sx = (W - (rw * show + gap * (show - 1))) / 2;
-      for (let k = 0; k < show; k++) {
-        const x = sx + k * (rw + gap), y = 15;
-        c.strokeStyle = faint; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, rw - 1, rh - 1);
-        const cw = (rw - 10) / 2, ch = (rh - 16) / 16;
-        for (let s = 0; s < per; s++) {
-          const srv = Math.floor(s / 8);
-          cell(x + 5 + (s % 2) * cw + 1, y + 5 + Math.floor(s / 2) * ch + srv * 2 + 1, cw - 2, ch - 2, zoom.lit - (k * per + s));
-        }
-      }
-    } else if (L.id === 3) {
-      const total = Math.round(RACKS_PER_DC), aspect = (W - 24) / (H - 24);
-      const cols = Math.ceil(Math.sqrt(total * aspect * 2.2)), rows = Math.ceil(total / cols);
-      const cw = (W - 24) / cols, ch = (H - 24 - 3 * Math.ceil(rows / 2)) / rows;
-      for (let i = 0; i < total; i++) {
-        const ri = Math.floor(i / cols);
-        cell(12 + (i % cols) * cw + 0.5, 12 + ri * ch + Math.floor(ri / 2) * 3 + 0.5, Math.max(1, cw - 1), Math.max(1, ch - 1), zoom.lit - i);
-      }
-    } else {
-      const full = Math.ceil(L.v), aspect = (W - 24) / (H - 24);
-      const cols = Math.max(1, Math.ceil(Math.sqrt(full * aspect))), rows = Math.ceil(full / cols);
-      const size = Math.min((W - 24) / cols, (H - 24) / rows), ox = (W - cols * size) / 2, oy = (H - rows * size) / 2, g = Math.max(1, size * 0.14);
-      for (let i = 0; i < full; i++) {
-        const f = Math.min(1, zoom.lit - i);
-        if (f <= 0) { c.fillStyle = line; c.fillRect(ox + (i % cols) * size + g / 2, oy + Math.floor(i / cols) * size + g / 2, size - g, size - g); continue; }
-        cell(ox + (i % cols) * size + g / 2, oy + Math.floor(i / cols) * size + g / 2, size - g, size - g, f);
-      }
-    }
-    c.restore();
   }
 
   /* ---------- log bar chart */
@@ -518,7 +358,7 @@
       const lab = opts.onClick ? `<button type="button" class="pick">${esc(r.label)}</button>` : esc(r.label);
       const name = `<div class="lname"><span class="lt">${lab}${ib}</span>${r.sub ? `<small>${r.sub}</small>` : ""}</div>`;
       const wh = !r.na && r.lo != null && r.hi > r.lo ? `<span class="whisk" style="left:${x(r.lo)}%;width:${Math.max(0.6, x(r.hi) - x(r.lo))}%"></span>` : "";
-      const track = r.na ? `<div class="track">${esc(r.na)}</div>` : `<div class="track">${gridHTML}${opts.log ? "" : `<span class="bar" style="width:${x(r.v)}%"></span>`}<span class="mk" style="left:${x(r.v)}%"></span>${wh}</div>`;
+      const track = r.na ? `<div class="track">${esc(r.na)}</div>` : `<div class="track">${gridHTML}${opts.log ? `<span class="mk" style="left:${x(r.v)}%"></span>` : `<span class="bar" style="width:${x(r.v)}%"></span>`}${wh}</div>`;
       const val = r.na ? `<div class="lval">—</div>` : `<div class="lval">${esc(opts.fmt(r.v))}${r.valSub ? `<small>${r.valSub}</small>` : ""}</div>`;
       row.innerHTML = name + track + val;
       if (opts.onClick) {
@@ -615,7 +455,7 @@
     if (state.view === "bars") {
       logChart(out, [{ label: "AI, this scenario", v: ai[1], lo: ai[0], hi: ai[2], cls: "ai" }].concat(items.map(({ c, v }) =>
         v == null ? { label: c.label, na: `no ${METRIC[m]} figure` }
-          : { label: c.label, sub: esc(c[basisId()].qty) + " each a year", v, valSub: `AI = ${fmtRatio(ai[1] / v)}`, tip: `${c.label}: ${FMT[m](v)} for ${who} over ${r.span}`, info: (b) => cmpInfo(b, c) })), { fmt: FMT[m], log: false });
+          : { label: c.label, sub: esc(c[basisId()].qty) + " each a year", v, valSub: v >= ai[1] ? `${esc(fmtCount(v / ai[1]))}× the AI` : `AI is ${esc(fmtCount(ai[1] / v))}×`, tip: `${c.label}: ${FMT[m](v)} for ${who} over ${r.span}`, info: (b) => cmpInfo(b, c) })), { fmt: FMT[m], log: false });
       return;
     }
     const gauge = (ic, ratio) => {
@@ -666,8 +506,6 @@
       ? `${esc(countTxt)} = <em>one ${SERVER}-GPU server for ${esc(fmtD(gpuSec))}</em>`
       : `${esc(countTxt)} = <em>${esc(fmtCount(r.running[1]))} GPUs non-stop</em> for ${esc(r.span)}`;
     $("#computeMeta").textContent = `${fmtCount(r.tokens)} tokens · ${fmtA(r.floor[1])} of data-centre floor`;
-    setZoom(r);
-    setClock(r);
 
     // footprint
     const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
@@ -729,7 +567,7 @@
       "Floor and site = whole racks (at least one) × IT power per rack × area per MW.",
       "Power draw = electricity ÷ hours in the period.",
       "Water = electricity × (cooling + power-plant water). CO₂ = electricity × grid carbon intensity.",
-      "Comparisons: per-person averages for everyone in the group, over the same period: Swiss or US averages, and world averages for the world. Training and hardware manufacturing are not included."
+      "Comparisons: per-person averages for everyone in the group, over the same period: Swiss, US or Australian averages, and world averages for the world. Training and hardware manufacturing are not included."
     ].map((s) => `<li>${esc(s)}</li>`).join("");
     const frow = (f, val) => `<tr><td>${esc(f.label)}</td><td class="num">${esc(val)}</td><td>${esc(f.note)}</td><td class="srcs">${srcLinks(f.src)}</td></tr>`;
     const tri = (v, u) => `${nf(v[1])} ${u} (${nf(v[0])}–${nf(v[2])})`;
@@ -738,8 +576,11 @@
       + frow(F.buildingM2perMW, tri(F.buildingM2perMW.v, "m²/MW")) + frow(F.landM2perMW, tri(F.landM2perMW.v, "m²/MW")) + frow(F.onsiteWater, tri(F.onsiteWater.v, "L/kWh"))
       + Object.values(M.grids).map((g) => `<tr><td>${esc(g.label)}</td><td class="num">${nf(g.co2 * 1000)} g/kWh<br>${nf(g.water)} L/kWh</td><td>${esc(g.note)}</td><td class="srcs">${srcLinks(g.src)}</td></tr>`).join("");
     const cell = (d) => `${esc(d.qty)}<br>${d.co2 != null ? nf(d.co2, 3) + " kg CO₂" : "—"} · ${d.kwh != null ? nf(d.kwh, 3) + " kWh" : "—"} · ${d.water != null ? fmtW(d.water) : "—"}`;
-    $("#baseTable tbody").innerHTML = M.comparisons.map((c) => `<tr><td>${esc(c.label)}</td><td class="num">${cell(c.CH)}</td><td class="num">${cell(c.US)}</td><td class="num">${cell(c.World)}</td><td>${esc(c.note)}</td><td class="srcs">${srcLinks(c.src)}</td></tr>`).join("");
-    $("#presetTable tbody").innerHTML = M.presets.map((p) => `<tr><td>${esc(p.label)}</td><td class="num">${nf(p.CH.n, 10)}${p.CH.note ? `<br><small>${esc(p.CH.note)}</small>` : ""}</td><td class="num">${nf(p.US.n, 10)}${p.US.note ? `<br><small>${esc(p.US.note)}</small>` : ""}</td></tr>`).join("");
+    const ids = Object.keys(M.bases), cids = ids.filter((id) => id !== "World");
+    $("#baseTable thead tr").innerHTML = `<th>Item</th>${ids.map((id) => `<th>${esc(id)}</th>`).join("")}<th>Note</th><th>Sources</th>`;
+    $("#baseTable tbody").innerHTML = M.comparisons.map((c) => `<tr><td>${esc(c.label)}</td>${ids.map((id) => `<td class="num">${cell(c[id])}</td>`).join("")}<td>${esc(c.note)}</td><td class="srcs">${srcLinks(c.src)}</td></tr>`).join("");
+    $("#presetTable thead tr").innerHTML = `<th>Preset</th>${cids.map((id) => `<th>${esc(M.bases[id].label)}</th>`).join("")}`;
+    $("#presetTable tbody").innerHTML = M.presets.map((p) => `<tr><td>${esc(p.label)}</td>${cids.map((id) => `<td class="num">${nf(p[id].n, 10)}${p[id].note ? `<br><small>${esc(p[id].note)}</small>` : ""}</td>`).join("")}</tr>`).join("");
     $("#sourceList").innerHTML = Object.values(M.sources).map((s) => `<li><a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a> <span class="d">${esc(s.d)}</span></li>`).join("");
     $("#prior").innerHTML = M.priorArt.map((p) => `<div><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a><br>${esc(p.what)}</div>`).join("");
   }
@@ -754,10 +595,9 @@
       `<p>GPU time = electricity ÷ ${F.gpuKW.v} kW per H100-class GPU, all-in, at ${F.draw.v * 100}% of peak on average. Spare capacity kept idle is not counted.</p><p>One request runs on one copy of the model, usually one ${SERVER}-GPU server, shared with many other requests at once. A bigger task takes longer rather than using more servers: tokens are generated one after another. Many people at once need many servers.</p><p>${F.gpusPerRack.v} GPUs per rack, ${F.dcMW.v} MW data centres.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(["epoch", "dgx", "superpod", "epochdc", "nebius"])}</div>`));
     $("#infoPower").addEventListener("click", (e) => infoPop(e.currentTarget, "Power draw",
       `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
-    $("#toSources").addEventListener("click", (e) => { e.preventDefault(); $("#assumptions").open = true; goTo("sure"); });
     pop.el.addEventListener("click", (e) => { const a = e.target.closest("[data-goto]"); if (a) { e.preventDefault(); goTo(a.dataset.goto); } });
     $("#infoCompare").addEventListener("click", (e) => infoPop(e.currentTarget, "About the comparisons",
-      `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Switzerland, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
+      `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Switzerland, Australia, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
     $("#infoLand").addEventListener("click", (e) => infoPop(e.currentTarget, "Data-centre land",
       `<p>Counted in whole racks, at least one, since a share of a GPU still sits in a rack. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
     $("#infoTasks").addEventListener("click", (e) => infoPop(e.currentTarget, "Every task",
@@ -806,11 +646,6 @@
         if (!show && pop.anchor && mini.contains(pop.anchor)) closePop();
       }).observe($("#eqbar"));
     }
-    let raf = 0;
-    const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawZoom); };
-    if ("ResizeObserver" in window) new ResizeObserver(redraw).observe(canvas); else window.addEventListener("resize", redraw);
-    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) { /* old browsers */ }
-    new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   }
 
   renderStatic();
