@@ -307,9 +307,9 @@ window.MODEL = {
     { id: "tennis", label: "Tennis court", m2: 260.8, note: "23.77 × 10.97 m", src: ["tennis"] },
     { id: "pitch", label: "Football pitch", m2: 7140, note: "105 × 68 m" },
     { id: "central", label: "Central Park, New York", m2: 3.41e6, note: "843 acres", src: ["centralpark"] },
-    { id: "zurich", label: "City of Zurich", m2: 87.93e6, note: "87.9 km²", src: ["wikizurich"] },
-    { id: "kzh", label: "Canton of Zurich", m2: 1728.95e6, note: "1,729 km²", src: ["wikikzh"] },
-    { id: "ch", label: "Switzerland", m2: 41285e6, note: "41,285 km²", src: ["myswitzerland"] }
+    { id: "zurich", label: "City of Zurich", m2: 87.93e6, note: "87.9 km²", src: ["wikizurich", "bfsgeo"] },
+    { id: "kzh", label: "Canton of Zurich", m2: 1728.95e6, note: "1,729 km²", src: ["wikikzh", "bfsgeo"] },
+    { id: "ch", label: "Switzerland", m2: 41285e6, note: "41,285 km²", src: ["myswitzerland", "bfsgeo"] }
   ],
 
   frequencies: [
@@ -450,6 +450,7 @@ window.MODEL = {
     centralpark: { t: "Central Park (843 acres)", u: "https://en.wikipedia.org/wiki/Central_Park", d: "" },
     wikizurich: { t: "Zurich, city area", u: "https://en.wikipedia.org/wiki/Zurich", d: "" },
     wikikzh: { t: "Canton of Zurich, area", u: "https://en.wikipedia.org/wiki/Canton_of_Zurich", d: "" },
+    bfsgeo: { t: "FSO generalised boundaries 2024, via swiss-maps (outlines, simplified)", u: "https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.html", d: "2024" },
     myswitzerland: { t: "Switzerland Tourism, geography (41,285 km²)", u: "https://www.myswitzerland.com/en/planning/about-switzerland/general-facts/facts-about-switzerland/geography/", d: "" },
     pwc26: { t: "PwC, Global Workforce Hopes and Fears Survey 2026: Switzerland", u: "https://www.pwc.ch/en/insights/transformation/global-workforce-hopes-and-fears-survey-2026-switzerland.html", d: "Sep 2026" },
     accenture26: { t: "Accenture Pulse of Change 2026 (via inside-it.ch)", u: "https://www.inside-it.ch/haelfte-der-schweizer-beschaeftigten-nutzt-taeglich-ki-20260728", d: "Jul 2026" },

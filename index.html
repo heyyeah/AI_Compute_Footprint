@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=3">
+<link rel="stylesheet" href="assets/styles.css?v=4">
 </head>
 <body>
 <!--BODY-START-->
 <div class="wrap">
   <header class="top" id="top">
     <h1>AI Compute Footprint</h1>
-    <p class="lead">How much compute, energy, time and space does it take to generate <span id="article">a</span>:</p>
+    <p class="lead">How much energy, space and time does it take to generate <span id="article">a</span>:</p>
   </header>
 
   <div class="eqbar" id="eqbar">
@@ -28,20 +28,18 @@
   </div>
 
 
-  <section class="panel hero" aria-labelledby="computeHead">
-    <p class="big" id="computeHead">—</p>
-    <p class="meta"><span id="computeMeta">—</span> <button type="button" class="info" id="infoCompute" aria-label="How compute is estimated">i</button></p>
+  <section class="statcard" aria-label="Footprint">
+    <div class="stats" id="stats"></div>
     <p class="taskline" id="taskline"></p>
   </section>
-
-  <section class="stats" id="stats" aria-label="Footprint"></section>
 
   <section class="panel block" aria-labelledby="landTitle">
     <div class="row-head"><h2 id="landTitle">Data-centre land</h2><button type="button" class="info" id="infoLand" aria-label="About data-centre land">i</button></div>
     <div class="land">
-      <svg id="landSvg" viewBox="0 0 220 220" role="img" aria-label="Land to scale"></svg>
+      <svg id="landSvg" viewBox="0 0 360 220" role="img" aria-label="Land to scale"></svg>
       <div class="land-text">
         <p class="say" id="landSay">—</p>
+        <p class="compute" id="landCompute"></p>
         <p class="legend" id="landLegend"></p>
         <p class="meta" id="landMeta">—</p>
       </div>
@@ -112,7 +110,7 @@
     </details>
     <details>
       <summary>Why I made this</summary>
-      <p class="why">I use AI both locally and from the cloud providers, and wanted to understand what it takes physically: the energy, water and land required to generate everyday AI tasks, next to the footprint of things we already do.</p>
+      <p class="why">I wanted to understand what it takes to generate everyday AI tasks next to the footprint of things we already do.</p>
     </details>
   </div>
 
@@ -133,7 +131,7 @@
 <div class="pop" id="pop" role="dialog" aria-modal="false" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <!--BODY-END-->
-<script src="data/model.js?v=3"></script>
-<script src="assets/app.js?v=3"></script>
+<script src="data/model.js?v=4"></script>
+<script src="assets/app.js?v=4"></script>
 </body>
 </html>
