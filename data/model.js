@@ -153,21 +153,21 @@ window.MODEL = {
 
   /* Where the electricity comes from (sets CO2 and power-plant water). */
   grids: {
-    us: { label: "US grid", co2: 0.350, water: 1.8, waterRange: [0.8, 4.5],
-      note: "350 g CO₂e/kWh (EPA eGRID 2023). Power-plant water 1.8 L/kWh (thermoelectric only; 4.5 if hydro-reservoir evaporation is counted).",
-      src: ["egrid", "lbnl", "macknick"] },
-    ch: { label: "Swiss grid", co2: 0.090, water: 0.7, waterRange: [0.3, 10],
-      note: "90 g CO₂e/kWh consumption mix incl. imports (VSE, 2025 provisional; 57 g for 2024, up to 128 g in BAFU's lifecycle method). Water DER: nuclear share only; counting hydro-reservoir evaporation could raise it many times.",
-      src: ["vse", "bafumix"] },
     au: { label: "Australian grid", co2: 0.525, water: 0.8, waterRange: [0.6, 1.8],
       note: "525 g CO₂e/kWh, 2025 (Ember, lifecycle, incl. rooftop solar). The official location-based factor is higher: 590 g (NGA 2026, FY2024–25, combustion only, excl. rooftop solar), from 210 g in SA and Tasmania to 740 g in Victoria. Water DER: 2025 mix × Australian consumption per fuel (coal 1.5, gas 0.56 L/kWh, 2004–05); 1.8 if tower-cooled coal and hydro-reservoir evaporation are counted.",
       src: ["auember", "aunga", "aunwc", "macknick"] },
-    world: { label: "World average grid", co2: 0.458, water: 1.8, waterRange: [0.8, 4.5],
-      note: "458 g CO₂e/kWh (Ember, 2025). No global water factor exists; US value used as a stand-in.",
-      src: ["ember"] },
     eu: { label: "European grid", co2: 0.210, water: 1.8, waterRange: [0.8, 4.5],
       note: "210 g CO₂e/kWh, EU 2025 (Ember, lifecycle; IEA combustion-only: 170 g). No European water factor found; the US value is used as a stand-in.",
       src: ["embereu", "ieaelec26"] },
+    ch: { label: "Swiss grid", co2: 0.090, water: 0.7, waterRange: [0.3, 10],
+      note: "90 g CO₂e/kWh consumption mix incl. imports (VSE, 2025 provisional; 57 g for 2024, up to 128 g in BAFU's lifecycle method). Water DER: nuclear share only; counting hydro-reservoir evaporation could raise it many times.",
+      src: ["vse", "bafumix"] },
+    us: { label: "US grid", co2: 0.350, water: 1.8, waterRange: [0.8, 4.5],
+      note: "350 g CO₂e/kWh (EPA eGRID 2023). Power-plant water 1.8 L/kWh (thermoelectric only; 4.5 if hydro-reservoir evaporation is counted).",
+      src: ["egrid", "lbnl", "macknick"] },
+    world: { label: "World average grid", co2: 0.458, water: 1.8, waterRange: [0.8, 4.5],
+      note: "458 g CO₂e/kWh (Ember, 2025). No global water factor exists; US value used as a stand-in.",
+      src: ["ember"] },
     market: { label: "Renewable contracts (market-based)", co2: 0.009, water: 1.8, waterRange: [0.8, 4.5],
       note: "~9 g/kWh, how hyperscalers report after buying renewable certificates (Microsoft FY24: 0.26 Mt over 29.8 TWh). The physical grid's emissions are unchanged; their location-based figure is ~334 g.",
       src: ["msftfacts"] }
@@ -175,6 +175,14 @@ window.MODEL = {
 
   /* ----------------------------------------------- PEOPLE & BASELINES */
   bases: {
+    AU: {
+      label: "Australia", short: "AU",
+      adoption: { v: 0.15, label: "About 15% of Australian adults use generative AI daily",
+        note: "DER, range 13–23%. ANU/Google survey, Oct 2025: 48.6% have used it; 13% daily or most days. Telsyte, Apr–May 2026: 5.2 million daily users, ~23% of people 16+, but this counts AI built into devices.", src: ["auanu", "autelsyte"] },
+      work: { v: 0.18, label: "18% of Australian workers use generative AI daily at work",
+        note: "PwC Hopes and Fears 2026 (1,250 Australian workers, May–Jun 2026); 59% have used AI at work.", src: ["aupwc26", "auanu"] },
+      homeKWhPerDay: 7.4
+    },
     CH: {
       label: "Switzerland", short: "CH",
       adoption: { v: 0.15, label: "15% of people in Switzerland (aged 15–88) use generative AI daily",
@@ -190,14 +198,6 @@ window.MODEL = {
       work: { v: 0.16, label: "16% of US workers use AI daily at work",
         note: "Gallup, Q2 2026 (30% weekly or more).", src: ["gallup"] },
       homeKWhPerDay: 12.1
-    },
-    AU: {
-      label: "Australia", short: "AU",
-      adoption: { v: 0.15, label: "About 15% of Australian adults use generative AI daily",
-        note: "DER, range 13–23%. ANU/Google survey, Oct 2025: 48.6% have used it; 13% daily or most days. Telsyte, Apr–May 2026: 5.2 million daily users, ~23% of people 16+, but this counts AI built into devices.", src: ["auanu", "autelsyte"] },
-      work: { v: 0.18, label: "18% of Australian workers use generative AI daily at work",
-        note: "PwC Hopes and Fears 2026 (1,250 Australian workers, May–Jun 2026); 59% have used AI at work.", src: ["aupwc26", "auanu"] },
-      homeKWhPerDay: 7.4
     },
     World: {
       label: "World", short: "world",
@@ -281,7 +281,7 @@ window.MODEL = {
   /* One-off things for small-scale equivalents. */
   equivalents: [
     { id: "burger", per: "co2", value: 3, label: "beef burgers", src: ["masley"] },
-    { id: "carkm", per: "co2", value: 0.249, label: "km in an average US car", src: ["epacar"] },
+    { id: "carkm", per: "co2", value: 0.249, label: "km in an average US car", note: "About 400 g CO₂ per mile", src: ["epacar"] },
     { id: "zrhlon", per: "co2", value: 117, label: "Zurich–London return flights", note: "1,587 km at DEFRA short-haul economy, CO₂ only", src: ["defra", "zhawlon"] },
     { id: "shower", per: "water", value: 80, label: "10-minute showers", src: ["masley"] },
     { id: "pool", per: "water", value: 2500000, label: "Olympic pools", note: "50 × 25 × 2 m" }
@@ -301,15 +301,14 @@ window.MODEL = {
 
   /* Land references, m². */
   landRefs: [
-    { id: "card", label: "Bank card", m2: 0.00462, note: "85.6 × 54 mm", src: ["iso7810"] },
-    { id: "a4", label: "A4 sheet", m2: 0.0624, note: "210 × 297 mm", src: ["iso216"] },
     { id: "parking", label: "Parking space", m2: 12.5, note: "typical 2.5 × 5 m" },
     { id: "tennis", label: "Tennis court", m2: 260.8, note: "23.77 × 10.97 m", src: ["tennis"] },
     { id: "pitch", label: "Football pitch", m2: 7140, note: "105 × 68 m" },
     { id: "central", label: "Central Park, New York", m2: 3.41e6, note: "843 acres", src: ["centralpark"] },
-    { id: "zurich", label: "City of Zurich", m2: 87.93e6, note: "87.9 km²", src: ["wikizurich", "bfsgeo"] },
-    { id: "kzh", label: "Canton of Zurich", m2: 1728.95e6, note: "1,729 km²", src: ["wikikzh", "bfsgeo"] },
-    { id: "ch", label: "Switzerland", m2: 41285e6, note: "41,285 km²", src: ["myswitzerland", "bfsgeo"] }
+    { id: "manhattan", label: "Manhattan", m2: 58.68e6, note: "58.7 km² of land", src: ["censusgaz", "nycboro"] },
+    { id: "la", label: "Los Angeles", m2: 1215.98e6, note: "1,216 km² of land", src: ["censusgaz", "tigerweb"] },
+    { id: "ch", label: "Switzerland", m2: 41285e6, note: "41,285 km²", src: ["myswitzerland", "bfsgeo"] },
+    { id: "tx", label: "Texas", m2: 676681e6, note: "676,681 km² of land", src: ["censusgaz", "usatlas"] }
   ],
 
   frequencies: [
@@ -444,12 +443,12 @@ window.MODEL = {
     argonne: { t: "Wu et al., Argonne, Consumptive water use in the production of ethanol and petroleum gasoline", u: "https://digital.library.unt.edu/ark:/67531/metadc894394/m2/1/high_res_d/947085.pdf", d: "2009" },
     npc: { t: "National Petroleum Council, Water usage considerations (27 gal per MMBtu for US crude)", u: "https://www.energy.gov/sites/default/files/2022-10/31-Water_Usage.pdf", d: "2012" },
     mekonnen15: { t: "Mekonnen et al., The consumptive water footprint of electricity and heat", u: "https://pubs.rsc.org/en/content/articlehtml/2015/ew/c5ew00026b", d: "2015" },
-    iso7810: { t: "ISO/IEC 7810 card sizes", u: "https://en.wikipedia.org/wiki/ISO/IEC_7810", d: "" },
-    iso216: { t: "ISO 216 paper sizes", u: "https://en.wikipedia.org/wiki/ISO_216", d: "" },
     tennis: { t: "WA Government, sports dimensions guide: tennis", u: "https://dlgsc.wa.gov.au/sport-and-recreation/sports-dimensions-guide/tennis", d: "" },
     centralpark: { t: "Central Park (843 acres)", u: "https://en.wikipedia.org/wiki/Central_Park", d: "" },
-    wikizurich: { t: "Zurich, city area", u: "https://en.wikipedia.org/wiki/Zurich", d: "" },
-    wikikzh: { t: "Canton of Zurich, area", u: "https://en.wikipedia.org/wiki/Canton_of_Zurich", d: "" },
+    censusgaz: { t: "US Census Bureau, 2020 Gazetteer files (land area)", u: "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.2020.html", d: "2020" },
+    nycboro: { t: "NYC Department of City Planning, borough boundaries (outline, simplified)", u: "https://www.nyc.gov/site/planning/data-maps/open-data/districts-download-metadata.page", d: "" },
+    tigerweb: { t: "US Census TIGERweb, 2020 place boundaries (outline, simplified)", u: "https://tigerweb.geo.census.gov/", d: "2020" },
+    usatlas: { t: "US Census cartographic boundaries, via us-atlas (outlines, simplified)", u: "https://github.com/topojson/us-atlas", d: "2017" },
     bfsgeo: { t: "FSO generalised boundaries 2024, via swiss-maps (outlines, simplified)", u: "https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.html", d: "2024" },
     myswitzerland: { t: "Switzerland Tourism, geography (41,285 km²)", u: "https://www.myswitzerland.com/en/planning/about-switzerland/general-facts/facts-about-switzerland/geography/", d: "" },
     pwc26: { t: "PwC, Global Workforce Hopes and Fears Survey 2026: Switzerland", u: "https://www.pwc.ch/en/insights/transformation/global-workforce-hopes-and-fears-survey-2026-switzerland.html", d: "Sep 2026" },

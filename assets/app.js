@@ -42,7 +42,7 @@
     globe: "M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19zM12 4.6c-2 2.1-3 4.6-3 7.4s1 5.3 3 7.4c2-2.1 3-4.6 3-7.4s-1-5.3-3-7.4z",
     gpu: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM8 9v6h8V9z"
   };
-  const svgIcon = (name, cls = "ico") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICON[name] || ICON.bolt}"/></svg>`;
+  const svgIcon = (name, cls = "ico") => `<svg class="${cls} i-${name}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICON[name] || ICON.bolt}"/></svg>`;
   const CMP_ICON = { beef: "steak", coal: "coal", car: "car", flight: "plane", power: "house", water: "glass", total: "person" };
   const EQ_ICON = { burger: "burger", carkm: "car", zrhlon: "plane", shower: "drop", pool: "pool" };
 
@@ -155,6 +155,7 @@
   const GPU_AVG_KW = F.gpuKW.v * F.draw.v;
   const SERVER = F.serverGPUs.v;
   const RACK_MW = (F.gpusPerRack.v * F.gpuKW.v) / F.pue.v / 1000;
+  const SERVER_MW = (RACK_MW * SERVER) / F.gpusPerRack.v;
   const serverSec = (wh) => (wh / 1000 / GPU_AVG_KW / SERVER) * 3600;
   function compute() {
     const t = M.tasks[state.task], f = M.frequencies[state.freq], b = M.bases[basisId()], g = M.grids[state.grid];
@@ -172,16 +173,17 @@
     const racks = running.map((x) => x / F.gpusPerRack.v);
     const itMW = running.map((x) => (x * F.gpuKW.v) / F.pue.v / 1000);
     const dcs = itMW.map((m) => m / F.dcMW.v);
-    // physical space: whole racks, at least one
+    // physical space: whole servers, at least one
     const fullRacks = racks.map((x) => Math.max(1, Math.ceil(x - 1e-9)));
-    const floor = fullRacks.map((n, i) => n * RACK_MW * F.buildingM2perMW.v[i]);
-    const site = fullRacks.map((n, i) => n * RACK_MW * F.landM2perMW.v[i]);
+    const servers = running.map((x) => Math.max(1, Math.ceil(x / SERVER - 1e-9)));
+    const floor = servers.map((n, i) => n * SERVER_MW * F.buildingM2perMW.v[i]);
+    const site = servers.map((n, i) => n * SERVER_MW * F.landM2perMW.v[i]);
     const waterOn = kwh.map((e, i) => (e / F.pue.v) * F.onsiteWater.v[i]); // WUE is per IT kWh
     const waterOff = kwh.map((e, i) => e * [g.waterRange[0], g.water, g.waterRange[1]][i]);
     const water = kwh.map((e, i) => waterOn[i] + waterOff[i]);
     const co2 = kwh.map((e) => e * g.co2);
     const watts = kwh.map((e) => (e * 1000) / hours);
-    return { t, f, b, g, once, days, span, people, users, count, tokens: count * t.tokens, kwh, hours, gpuH, running, racks, fullRacks, itMW, dcs, floor, site, waterOn, waterOff, water, co2, watts };
+    return { t, f, b, g, once, days, span, people, users, count, tokens: count * t.tokens, kwh, hours, gpuH, running, racks, fullRacks, servers, itMW, dcs, floor, site, waterOn, waterOff, water, co2, watts };
   }
 
   /* ---------- popover */
@@ -306,7 +308,7 @@
     return { node: n };
   }
   function popGrid() {
-    const n = node(`<div class="optlist">${["us", "eu", "ch", "au", "world", "market"].map((id) => [id, M.grids[id]]).map(([id, g]) => `
+    const n = node(`<div class="optlist">${Object.entries(M.grids).map(([id, g]) => `
       <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === state.grid}"><span>${esc(g.label)}</span><span class="w">${nf(g.co2 * 1000)} g CO₂/kWh</span></button>`).join("")}</div>
       <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely; for users in Australia, Sydney and Melbourne.</p><p>${esc(M.grids[state.grid].note)}</p><div class="srcs">${srcLinks(M.grids[state.grid].src)}</div>`);
     n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.grid = b.dataset.id; closePop(true); render(); });
@@ -409,34 +411,38 @@
     for (let d = Math.ceil(lo / 3) * 3; d <= hi; d += 3) ticks.push(d);
     $("#ladder").innerHTML = `<div class="track"></div>${R.map((g, i) =>
       `<button type="button" class="rung ${i % 2 ? "dn" : "up"} ${g === below || g === above ? "near" : ""}" style="left:${x(g.w)}%" data-id="${g.id}" aria-label="${esc(g.label)}, ${esc(fmtPow(g.w))}">${svgIcon(g.icon)}</button>`).join("")}
-      <span class="you" style="left:${x(w)}%" title="This scenario"></span>
+      <span class="you" style="left:${x(w)}%"></span>
       ${ticks.map((d) => `<span class="tickl" style="left:${x(Math.pow(10, d))}%">${esc(fmtPow(Math.pow(10, d)))}</span>`).join("")}`;
     $("#ladder").querySelectorAll(".rung").forEach((b) => {
       const g = R.find((q) => q.id === b.dataset.id);
+      b.addEventListener("pointermove", (e) => showTip(e, `${g.label}: ${fmtPow(g.w)}`));
+      b.addEventListener("pointerleave", hideTip);
       b.addEventListener("click", () => infoPop(b, g.label, `<div class="val">${esc(fmtPow(g.w))}</div>${g.note ? `<p>${esc(g.note)}</p>` : ""}<div class="srcs">${srcLinks(g.src)}</div>`));
     });
+    const you = $("#ladder .you");
+    you.addEventListener("pointermove", (e) => showTip(e, `This scenario: ${fmtPow(w)} on average`));
+    you.addEventListener("pointerleave", hideTip);
     const lab = (g) => `${g.label} (${fmtPow(g.w)})`;
     $("#powerBetween").textContent = `${fmtPow(w)} on average${below && above ? `, between ${lab(below)} and ${lab(above)}` : ""}. Log scale: 1,000× between labels.`;
   }
 
   /* ---------- land, to scale */
   const LAND_SAY = {
-    card: ["a bank card", "bank cards"], a4: ["an A4 sheet", "A4 sheets"], parking: ["a parking space", "parking spaces"],
-    tennis: ["a tennis court", "tennis courts"], pitch: ["a football pitch", "football pitches"], central: ["Central Park", "× Central Park"],
-    zurich: ["the City of Zurich", "× the City of Zurich"], kzh: ["the canton of Zurich", "× the canton of Zurich"], ch: ["Switzerland", "× Switzerland"]
+    parking: ["a parking space", "parking spaces"], tennis: ["a tennis court", "tennis courts"], pitch: ["a football pitch", "football pitches"],
+    central: ["Central Park", "× Central Park"], manhattan: ["Manhattan", "× Manhattan"], la: ["Los Angeles", "× Los Angeles"],
+    ch: ["Switzerland", "× Switzerland"], tx: ["Texas", "× Texas"]
   };
   /* Line art per reference: w × h in its own units (m, or 0–100 for outlines), area = w·h·fill.
-     Outlines: FSO generalised boundaries 2024, simplified. */
+     Outlines: NYC Planning, US Census and FSO boundaries, simplified; holes are enclaves. */
   const SHAPE = {
-    card: { w: 85.6, h: 54, art: `<rect width="85.6" height="54" rx="3.2"/>` },
-    a4: { w: 210, h: 297, art: `<rect width="210" height="297"/>` },
     parking: { w: 2.5, h: 5, gap: 0, art: `<path d="M0 5V0H2.5V5"/><rect x=".38" y=".4" width="1.74" height="4.2" rx=".45"/><path d="M.5 1.65Q1.25 1.35 2 1.65M.55 3.55Q1.25 3.8 1.95 3.55M.48 1.7V3.5M2.02 1.7V3.5"/>` },
     tennis: { w: 23.77, h: 10.97, gap: 3, art: `<rect width="23.77" height="10.97"/><path d="M0 1.37H23.77M0 9.6H23.77M5.485 1.37V9.6M18.285 1.37V9.6M5.485 5.485H18.285"/><path class="net" d="M11.885 -.9V11.87"/>` },
     pitch: { w: 105, h: 68, gap: 8, art: `<rect width="105" height="68"/><path d="M52.5 0V68M0 13.84H16.5V54.16H0M105 13.84H88.5V54.16H105M0 24.84H5.5V43.16H0M105 24.84H99.5V43.16H105M16.5 26.69A9.15 9.15 0 0 1 16.5 41.31M88.5 26.69A9.15 9.15 0 0 0 88.5 41.31M0 30.34H-2V37.66H0M105 30.34H107V37.66H105M0 1A1 1 0 0 0 1 0M104 0A1 1 0 0 0 105 1M105 67A1 1 0 0 0 104 68M1 68A1 1 0 0 0 0 67"/><circle cx="52.5" cy="34" r="9.15"/><circle class="spot" cx="52.5" cy="34" r=".5"/><circle class="spot" cx="11" cy="34" r=".5"/><circle class="spot" cx="94" cy="34" r=".5"/>` },
     central: { w: 4100, h: 832, gap: 300, art: `<rect width="4100" height="832"/><rect x="110" y="110" width="3880" height="612" rx="300"/><ellipse cx="2570" cy="430" rx="400" ry="290"/><ellipse cx="1880" cy="420" rx="260" ry="170"/><path d="M1050 300C1250 220 1420 320 1360 430C1310 530 1140 470 1060 560C980 640 860 520 950 430C1000 380 960 340 1050 300Z"/><path d="M3850 560C3950 560 3990 660 3920 720H3700C3720 640 3760 560 3850 560Z"/>` },
-    zurich: { w: 100, h: 95.2, fill: 0.523, gap: 8, d: "M31.2 95.2L29.8 93.1L30.6 81.6L28.5 75.2L22 68.2L19.6 62.9L13 60.9L9.2 56.6L12.6 50.5L0 45.5L5.9 43.7L7.8 38.3L13.4 34.8L9.8 30.1L11.1 26.5L17 25.7L15.5 20.9L11.4 17.9L16.4 12.2L23.8 8L21.2 3.2L30.3 0L35.5 2.2L44 1.5L60.7 3.5L60.3 11.6L65.2 15.9L70.8 12.7L70.1 18.8L84 24.3L83.9 31.9L77.2 35.8L80.1 42.4L89.5 54.9L96 56.5L100 66.9L88.9 67.4L87.7 69.7L78.5 68.1L73.8 71.5L64.8 74.1L61.3 68.8L58 67.7L54.4 57L51 58.7L50.4 72.6L54.4 82.1L49.9 87L42.9 91.9Z" },
-    kzh: { w: 79.8, h: 100, fill: 0.613, gap: 8, d: "M8.7 23.7L17.4 21.2L14.1 20.7L12.6 17.2L19.1 14.4L20.7 11.2L26.9 14.4L22.5 21.2L25 26.5L26.2 25.6L31.2 15.6L30.2 9.7L31.8 7.9L32.9 10.6L34.4 8.6L31.6 4.8L34.3 2.9L34 .6L39.8 1.8L41.1 7L44.6 9.8L49.5 10.4L56.6 5.5L56.8 7.9L59.6 8.9L56.6 17.5L49.8 13.7L48.5 16.2L49.7 19.1L62.7 24.4L60.1 26.4L61.4 30.2L68.8 31.9L66.9 41.9L69.8 47.8L72.9 49.1L70.6 49.8L69.5 54.6L74.3 57.4L79.8 70.1L73.2 75.9L75.1 77.6L73.5 81.1L64 84.3L56.6 83.7L57.2 88.6L42.8 93.1L41.1 95.5L42.6 99.2L40.3 100L33.9 97.4L32.8 92.5L28 88.9L20.8 88.6L15.5 90.8L8.2 88.1L3.9 75.6L9.1 73.6L12.3 67.3L7.4 69.2L4.9 56.2L.6 54.6L3.4 53.9L4.3 51.2L2.1 49L3.7 45.8L1 42.7L2 39.8L0 35.9L7.6 27.8Z" },
-    ch: { w: 100, h: 63.5, fill: 0.54, gap: 8, d: "M57.7 0L61.1 1.4L62.4 4.1L62.8 2.2L64.8 5.1L72.8 4.7L79.4 8.4L82 13.6L78.8 17.1L77.6 24.1L86.4 25.1L86.4 27.8L91.5 30.8L94.3 30L97 26L99.9 27.7L97.6 35.8L100 38L99.6 40.3L95.6 40.1L94.4 37.4L90.2 40.3L90.1 43.6L92.8 44.7L91.5 47L92.4 50.3L90.1 50.4L88.1 45.6L83.3 46.5L82.8 48.4L79.2 48L77.3 45.7L77.3 41.5L76.2 42.8L73.3 41.8L73.4 48.2L67.3 56.5L66.9 58.6L69.1 60.9L67.5 63.5L65.2 63.1L64.8 59L62.4 58L63.8 55.3L58.5 53.8L54.8 49.7L54.9 42.9L47 49.2L48.5 53L42.1 60.4L35.1 58.1L31.4 61L25.2 62.2L21.6 55.7L20.3 56.2L20.8 53.7L18.6 53.3L20 48.7L18 46.3L19.1 44.1L16 43.2L8.4 44.8L5.8 47.7L7.5 50.5L4 53.2L0 53.5L4.7 46L2.4 44.4L4.4 40.3L3.4 39.3L10.9 33L10.5 28L16.8 24.1L24.3 15.1L20.4 14.5L22.6 10L27.4 10L26.8 11.6L28.6 12.2L31.9 11.8L37.3 6.7L38.4 8.7L41.1 7L46.9 7.9L49.5 5.9L55.3 7.5L58.9 5L54 4.2Z" }
+    manhattan: { w: 45.9, h: 100, fill: 0.271, gap: 8, d: "M3.4 85.9L2.9 89L3.9 90.7L5.6 91.4L11.3 87.4L14.9 86.6L17.5 86.7L19.8 85.6L21.7 77.9L20.6 73.2L21.3 72.5L21.8 69.1L33 53L32.9 48.6L34.3 47.5L35.8 44.6L38.4 42.1L38.5 39.5L36.4 35L36.2 21.7L41.6 10L41.5 8.8L42.6 9L45.2 5L45.9 2.8L45 1.7L43.5 1.4L41.6 2.1L40.9 0L38.8 0.3L37.4 3.1L37.1 5L33.4 12L31.5 13.8L31.8 17.2L29.8 23L28.4 25.5L27.2 26.2L26.6 27.4L27 28.4L24.6 31.9L10.9 58.3L7.5 63.7L6.7 66.1L7 68.5L6.1 76L4.9 76.4L6 77.1L5.3 82L3.8 82.6L3.6 84.3L4 84.8ZM35.8 47.8L36.2 48.7L39.2 49.7L40.9 48.6L42.7 45.3L44 44L44.5 42.9L43.9 41.6L41.2 39.1L39.9 39L39.2 40.5L38.9 43.6L39.9 44.2L39.7 44.8L37.7 44.7ZM0 99L0.3 99.9L1.4 100L5.2 97.9L5.6 96.5L4.7 95.5L2.8 95.4Z" },
+    la: { w: 67.5, h: 100, fill: 0.396, gap: 8, d: "M0 23.3L0 25.3L1.3 25.3L1.3 26.5L3 27.1L5.2 30L7 29.7L13.6 32.7L9.1 41.5L12.9 42.3L13 55L13.8 55.2L19.8 49.3L22.9 45.3L24.3 46.7L25.1 45.9L29.6 50.6L17.2 58.5L22.3 66.5L30.4 66.5L27.7 62.5L27.6 59.4L31.4 66.4L32.4 66.4L31.5 64.1L39.4 64.4L39.2 60.7L38.1 60.7L39.2 56.1L43.8 56.1L44.1 58.4L46.1 57.8L46.7 63L48.1 61.8L48.4 59.6L49.5 59.6L49.7 74.3L48.7 74.5L49.2 73.7L48.6 73.7L48.5 74.4L47.2 74.5L47.6 88.8L46.9 90.6L48.3 91.5L47.2 91.5L47.2 93.2L46 93.2L46 95.5L44.1 97.1L49.2 99.9L50.7 99.2L52.9 100L57.4 98.2L55.2 91.8L58.9 87.6L58 86.4L58.6 84.2L58.1 80.1L58.5 83.8L57.6 86L56.7 84.7L53.9 84.9L54.2 84.1L53.1 84.1L53.1 84.9L48.6 85.2L48.5 77.5L50.3 77.5L49.7 75.5L50.9 74.9L50.8 65.4L57.6 64.4L58 62.2L57.1 60.6L55.4 60.5L54.5 62.2L54.2 54.9L56.6 54.9L56.4 50.9L62.7 51.2L62.6 43.5L66.2 43.4L67.5 37.7L64.5 37.7L64.5 35.8L66.1 33.4L64.6 33.8L63.4 32.1L64.2 31L63.7 29.7L58.1 29.6L57 33.2L54.6 33.6L54.5 34.5L51 28.6L47.2 27.8L46.7 28.9L45.5 28.7L42.5 30.7L40.9 27.8L40.4 22.5L39.2 22.2L40.2 20.6L43.2 20.6L43.5 18.3L52.8 18.2L52.8 13.7L54.2 13.4L54.1 11.1L56.5 11.1L56.5 8.8L50.2 9.3L50.2 7L48.5 6.9L48.5 8.1L41.2 9.2L39.6 9L39.3 8.1L37.2 8.3L37.6 6.9L36.9 6.1L34.5 8.1L33.9 7.2L35.1 5.8L34.6 4.6L35.8 3L34.6 2.4L34.6 1.2L33.5 1.2L33.2 2L32.8 1.2L23.1 1L21.6 0L17.7 3.6L16 3.2L16.8 6.1L13.1 6.7L10.7 5.4L9.5 9.9L8 9.4L4.6 10.7L4.9 15.7L2.8 15.7L2.4 17.4L1.3 18L2 19.6L0 20.2L0 22.5L1.5 22.2L1.4 23.3ZM29 54.4L31.5 53L32.6 53.4L32.5 51.6L39.3 47.7L38 50.2L38.9 50.3L38.8 51.4L39.7 50.8L39.9 52.4L40.9 51.8L40.8 53.7L43.7 51.9L44.3 53L43.5 55.1L41.5 54.9L41.5 55.9L39 55.9L39 56.8L37.9 57L34.5 54.9L34.9 52.7L34.5 53.4L33.4 52.7L32.7 53.6L31.2 53.8L31.2 54.9L30.4 54ZM31.7 39L33.7 38.7L34.1 37.2L35.2 38.4L35.7 35.5L36.5 36L35.8 38.9L39.4 37.8L42.7 38.4L42.7 39.2L41.5 39.5L38.3 39.3L39.2 40.6L36.5 41.2L36.5 41.9L38.5 42.2L38.9 43.4L34.5 44.2L34.5 44.9Z" },
+    ch: { w: 100, h: 63.5, fill: 0.54, gap: 8, d: "M57.7 0L61.1 1.4L62.4 4.1L62.8 2.2L64.8 5.1L72.8 4.7L79.4 8.4L82 13.6L78.8 17.1L77.6 24.1L86.4 25.1L86.4 27.8L91.5 30.8L94.3 30L97 26L99.9 27.7L97.6 35.8L100 38L99.6 40.3L95.6 40.1L94.4 37.4L90.2 40.3L90.1 43.6L92.8 44.7L91.5 47L92.4 50.3L90.1 50.4L88.1 45.6L83.3 46.5L82.8 48.4L79.2 48L77.3 45.7L77.3 41.5L76.2 42.8L73.3 41.8L73.4 48.2L67.3 56.5L66.9 58.6L69.1 60.9L67.5 63.5L65.2 63.1L64.8 59L62.4 58L63.8 55.3L58.5 53.8L54.8 49.7L54.9 42.9L47 49.2L48.5 53L42.1 60.4L35.1 58.1L31.4 61L25.2 62.2L21.6 55.7L20.3 56.2L20.8 53.7L18.6 53.3L20 48.7L18 46.3L19.1 44.1L16 43.2L8.4 44.8L5.8 47.7L7.5 50.5L4 53.2L0 53.5L4.7 46L2.4 44.4L4.4 40.3L3.4 39.3L10.9 33L10.5 28L16.8 24.1L24.3 15.1L20.4 14.5L22.6 10L27.4 10L26.8 11.6L28.6 12.2L31.9 11.8L37.3 6.7L38.4 8.7L41.1 7L46.9 7.9L49.5 5.9L55.3 7.5L58.9 5L54 4.2Z" },
+    tx: { w: 100, h: 93.2, fill: 0.467, gap: 8, d: "M27.7 0L50.6 0L50.6 17L52.8 18.5L55.3 17.9L56.8 20L62.2 21.3L65 20.5L66.1 22.9L68.5 22L70.1 23.4L71.9 22.6L72.5 24.3L74.1 22.2L78.3 24.5L80 23.3L87 22.2L93.3 25.8L96 25.8L96 39.4L100 47.9L98.3 52.1L98.6 56.3L96.9 58.6L97.6 59.6L90.8 62.3L92.6 61L90.5 60.8L90.6 58.7L89.1 59.5L89.5 62.9L87.5 64.6L90.8 62.7L73.5 75.1L70.6 81.7L72.3 91.1L70.7 86.9L70.7 80L72.9 75.1L77.9 70.8L75.9 71.6L75.2 70.7L74 73.2L72.3 73.1L73.3 73.9L72.1 75.8L69.7 75.3L71.5 77L70.3 80.2L68.6 80.7L70.3 80.7L70.1 86.5L72.4 92.2L70.6 93.2L57.6 88.3L54.8 82.8L54.3 78.1L48.4 71.8L44.6 63.4L39.9 58.9L33.1 57.9L30.3 59.1L28.6 63.7L25.6 65.7L16.3 60L13.1 51.5L0.1 40.5L0.2 39.3L27.3 39.3Z" }
   };
   // largest reference that fits up to 60 times, else the smallest bigger one
   const closestRef = (m2) => {
@@ -454,11 +460,13 @@
   function landArt(a, ref) {
     const sh = SHAPE[ref.id], { w, h } = sh, gap = sh.gap || 0, k = a / ref.m2, BW = 360, BH = 220, P = 3;
     const fillShape = (f, x, y) => sh.d
-      ? `<path class="ai" d="${sh.d}" transform="translate(${x + (w / 2) * (1 - Math.sqrt(f))} ${y + (h / 2) * (1 - Math.sqrt(f))}) scale(${Math.sqrt(f)})"/>`
-      : `<rect class="ai" x="${x}" y="${y}" width="${Math.max(w * f, w * 0.004)}" height="${h}"/>`;
+      ? `<path class="ai" fill="url(#fp${f < 1 ? 2 : ""})" d="${sh.d}" transform="translate(${x + (w / 2) * (1 - Math.sqrt(f))} ${y + (h / 2) * (1 - Math.sqrt(f))}) scale(${Math.sqrt(f)})"/>`
+      : h > w ? `<rect class="ai" fill="url(#fp)" x="${x}" y="${y + h * (1 - f)}" width="${w}" height="${Math.max(h * f, h * 0.004)}"/>`
+      : `<rect class="ai" fill="url(#fp)" x="${x}" y="${y}" width="${Math.max(w * f, w * 0.004)}" height="${h}"/>`;
     const artAt = (x, y) => `<g transform="translate(${x} ${y})">${sh.d ? `<path d="${sh.d}"/>` : sh.art}</g>`;
+    const gndAt = (x, y) => sh.d ? `<path class="gnd" d="${sh.d}" transform="translate(${x} ${y})"/>` : `<rect class="gnd" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
     const n = Math.max(1, Math.ceil(k - 1e-9));
-    let fills = "", art = "", gw, gh;
+    let gnd = "", fills = "", art = "", gw, gh;
     if (n <= 100) {
       let best = null;
       for (let c = 1; c <= n; c++) {
@@ -467,6 +475,7 @@
       }
       for (let i = 0; i < n; i++) {
         const x = (i % best.c) * (w + gap), y = Math.floor(i / best.c) * (h + gap);
+        gnd += gndAt(x, y);
         fills += fillShape(Math.min(1, k - i), x, y);
         art += artAt(x, y);
       }
@@ -474,12 +483,16 @@
     } else {
       // too many to tile: one square of the floor, the reference at the same scale in its corner
       const side = Math.sqrt(a / ref.m2 * w * h * (sh.fill || 1));
-      fills = `<rect class="ai" width="${side}" height="${side}"/>`;
+      fills = `<rect class="ai" fill="url(#fp)" width="${side}" height="${side}"/>`;
+      gnd = gndAt(0, side - h);
       art = artAt(0, side - h);
       gw = gh = side;
     }
     const s = Math.min(BW / gw, BH / gh), p = P / s;
-    return { w: Math.round(gw * s + 2 * P), h: Math.round(gh * s + 2 * P), vb: `${-p} ${-p} ${gw + 2 * p} ${gh + 2 * p}`, html: fills + `<g class="art">${art}</g>` };
+    // floor texture: the floor icon (⊞) tiled, 16 px per tile on screen
+    const pat = (id, u) => `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${16 * u}" height="${16 * u}"><rect class="fpbg" width="${16 * u}" height="${16 * u}"/><path class="fpc" stroke-width="${u}" d="M${2.5 * u} ${2.5 * u}h${11 * u}v${11 * u}h${-11 * u}zM${8 * u} ${2.5 * u}v${11 * u}M${2.5 * u} ${8 * u}h${11 * u}"/></pattern>`;
+    const defs = `<defs>${pat("fp", 1 / s)}${sh.d && k % 1 ? pat("fp2", 1 / s / Math.sqrt(k % 1)) : ""}</defs>`;
+    return { w: Math.round(gw * s + 2 * P), h: Math.round(gh * s + 2 * P), vb: `${-p} ${-p} ${gw + 2 * p} ${gh + 2 * p}`, html: defs + (n <= 100 ? gnd + fills : fills + gnd) + `<g class="art">${art}</g>`, cls: ref.id };
   }
   const infoCompute = (b) => infoPop(b, "How compute is estimated",
     `<p>GPU time = electricity ÷ ${F.gpuKW.v} kW per H100-class GPU, all-in, at ${F.draw.v * 100}% of peak on average. Spare capacity kept idle is not counted.</p><p>One request runs on one copy of the model, usually one ${SERVER}-GPU server, shared with many other requests at once. A bigger task takes longer rather than using more servers: tokens are generated one after another. Many people at once need many servers.</p><p>${F.gpusPerRack.v} GPUs per rack, ${F.dcMW.v} MW data centres.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(["epoch", "dgx", "superpod", "epochdc", "nebius"])}</div>`);
@@ -489,7 +502,7 @@
     const gpuSec = (r.gpuH[1] / SERVER) * 3600, racks = r.fullRacks[1];
     const countTxt = r.count === 1 ? `1 ${r.t.name.replace(/^./, (ch) => ch.toLowerCase())}` : `${r.count < 1e6 ? nf(Math.round(r.count), 6) : fmtCount(r.count)} ${PLURAL[r.t.id]}`;
     $("#landCompute").innerHTML = (gpuSec <= r.hours * 3600
-      ? `${esc(countTxt)} = <b>one ${SERVER}-GPU server for ${esc(fmtD(gpuSec))}</b>, in one rack of ${F.gpusPerRack.v} GPUs`
+      ? `${esc(countTxt)} = <b>one ${SERVER}-GPU server for ${esc(fmtD(gpuSec))}</b>`
       : `${esc(countTxt)} = <b>${esc(fmtCount(r.running[1]))} GPUs non-stop</b> for ${esc(r.span)}, in ${esc(fmtCount(racks))} rack${racks > 1 ? "s" : ""}`)
       + ` <button type="button" class="info" id="infoCompute" aria-label="How compute is estimated">i</button>`;
     $("#infoCompute").addEventListener("click", (e) => infoCompute(e.currentTarget));
@@ -499,13 +512,14 @@
     svg.setAttribute("height", art.h);
     svg.setAttribute("aria-label", `Data-centre floor drawn to scale against ${ref.label}`);
     svg.innerHTML = art.html;
-    $("#landLegend").innerHTML = `<span><span class="sw" style="background:var(--hot)"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
-    $("#landMeta").textContent = `Drawn to scale. The whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole racks (at least one) and includes aisles, cabling, power and cooling rooms and walls.`;
+    svg.setAttribute("class", art.cls);
+    $("#landLegend").innerHTML = `<span><span class="sw floor"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref ${ref.id}"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
+    $("#landMeta").textContent = `Drawn to scale. The whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole servers (at least one) and includes aisles, cabling, power and cooling rooms and walls.`;
   }
 
   /* ---------- compare */
   const cmpInfo = (b, c) => infoPop(b, c.label, `<p>${esc(c[basisId()].qty)} per person a year (${esc(M.bases[basisId()].label)}).</p><p>${esc(c.note)}</p><div class="srcs">${srcLinks(c.src)}</div>`);
-  const taskInfo = (b, t) => infoPop(b, t.name, `<p style="color:var(--ink)">${esc(t.desc)}</p><p>${esc(nf(t.wh[1]))} Wh (${esc(nf(t.wh[0]))}–${esc(nf(t.wh[2]))}) per task · ${esc(t.basis)}.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`);
+  const taskInfo = (b, t) => infoPop(b, t.name, `<p style="color:var(--ink)">${esc(t.desc)}</p><p class="${t.conf}">${CONF[t.conf]}</p><p>${esc(nf(t.wh[1]))} Wh (${esc(nf(t.wh[0]))}–${esc(nf(t.wh[2]))}) per task · ${esc(t.basis)}.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`);
   function renderCompare(r) {
     const grp = adopt() ? r.users : r.people;
     const m = state.metric, ai = r[m], who = grp === 1 ? "1 person" : `${fmtCount(grp, 3)} ${adopt() ? "daily AI users" : "people"}`;
@@ -515,7 +529,7 @@
     });
     const out = $("#cmpOut");
     if (state.view === "bars") {
-      logChart(out, [{ label: "AI, this scenario", v: ai[1], lo: ai[0], hi: ai[2], cls: "ai" }].concat(items.map(({ c, v }) =>
+      logChart(out, [{ label: "AI, this scenario", v: ai[1], lo: ai[0], hi: ai[2], cls: "ai", tip: `AI, this scenario: ${FMT[m](ai[1])} (${FMT[m](ai[0])}–${FMT[m](ai[2])}) for ${who} over ${r.span}` }].concat(items.map(({ c, v }) =>
         v == null ? { label: c.label, na: `no ${METRIC[m]} figure` }
           : { label: c.label, sub: esc(c[basisId()].qty) + " each a year", v, valSub: v >= ai[1] ? `${esc(fmtCount(v / ai[1]))}× the AI` : `AI is ${esc(fmtCount(ai[1] / v))}×`, tip: `${c.label}: ${FMT[m](v)} for ${who} over ${r.span}`, info: (b) => cmpInfo(b, c) })), { fmt: FMT[m], log: false });
       return;
@@ -565,14 +579,14 @@
     const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
     const stat = (cls, ic, k, v, rng, c, id) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r">${esc(rng)} ${conf(c)}</span></div>`;
     $("#stats").innerHTML =
-      stat("e", "bolt", "Electricity", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e") +
+      stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e") +
+      stat("l", "land", "Floor space", fmtA(r.floor[1]), `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l") +
       stat("w", "drop", "Water", fmtW(r.water[1]), `${fmtW(r.water[0])} – ${fmtW(r.water[2])}`, "guess", "w") +
-      stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c") +
-      stat("l", "land", "Floor", fmtA(r.floor[1]), `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l");
+      stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c");
     const statInfo = {
-      e: ["Electricity", `<p>${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
+      e: ["Energy", `<p>Electricity: ${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
       w: ["Water", `<p>${esc(fmtW(r.waterOn[1]))} evaporated cooling the data centre + ${esc(fmtW(r.waterOff[1]))} at power plants.</p><p>${esc(F.onsiteWater.note)}</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(F.onsiteWater.src.concat(r.g.src))}</div>`],
-      l: ["Floor", `<p>Data-centre floor for ${esc(fmtCount(r.fullRacks[1]))} whole rack${r.fullRacks[1] > 1 ? "s" : ""} (at least one), including aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
+      l: ["Floor space", `<p>Data-centre floor for ${esc(fmtCount(r.servers[1]))} whole ${SERVER}-GPU server${r.servers[1] > 1 ? "s" : ""} (at least one), including aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
       c: ["CO₂", `<p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. Change the grid in the comparison section.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
     };
     $("#stats").querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => infoPop(b, ...statInfo[b.dataset.stat])));
@@ -583,10 +597,15 @@
     // everyday
     const eqv = { co2: r.co2[1], water: r.water[1], land: r.floor[1] };
     const homeDays = r.kwh[1] / r.b.homeKWhPerDay;
-    $("#equivs").innerHTML = M.equivalents.map((e) => ({ ...e, n: eqv[e.per] / e.value }))
-      .filter((e) => !(e.id === "pool" && e.n < 1) && !(e.id === "shower" && e.n > 1e7) && !(e.id === "pitch" && e.n < 0.01))
-      .map((e) => `<div class="equiv" title="${esc(e.note || "")}">${svgIcon(EQ_ICON[e.id])}<b>${esc(fmtCount(e.n))}</b><span>${esc(e.label)}</span></div>`).join("")
-      + `<div class="equiv">${svgIcon("house")}<b>${esc(fmtCount(homeDays))}</b><span>days of one person's home electricity (${esc(r.b.short)})</span></div>`;
+    const home = { id: "home", icon: "house", per: "kwh", value: r.b.homeKWhPerDay, n: homeDays, label: `days of one person's home electricity (${r.b.short})`,
+      each: `${nf(r.b.homeKWhPerDay)} kWh a day`, src: M.rungs.find((g) => g.id === "home").src };
+    const eqs = M.equivalents.map((e) => ({ ...e, icon: EQ_ICON[e.id], n: eqv[e.per] / e.value, each: `${FMT[e.per](e.value)}${e.per === "co2" ? " CO₂" : ""} each` }))
+      .filter((e) => !(e.id === "pool" && e.n < 1) && !(e.id === "shower" && e.n > 1e7)).concat(home);
+    $("#equivs").innerHTML = eqs.map((e, i) => `<button type="button" class="equiv" data-i="${i}">${svgIcon(e.icon)}<b>${esc(fmtCount(e.n))}</b><span>${esc(e.label)}</span><small>${esc(e.each)}</small></button>`).join("");
+    $("#equivs").querySelectorAll(".equiv").forEach((b) => {
+      const e = eqs[b.dataset.i], tot = { co2: r.co2[1], water: r.water[1], kwh: r.kwh[1] }[e.per];
+      b.addEventListener("click", () => infoPop(b, e.label.replace(/^./, (ch) => ch.toUpperCase()), `<div class="val">${esc(e.each)}</div>${e.note ? `<p>${esc(e.note)}.</p>` : ""}<p>This scenario's ${METRIC[e.per]}, ${esc(FMT[e.per](tot))}, ÷ ${esc(e.each.replace(/ each$/, ""))} = ${esc(fmtCount(e.n))}.</p><div class="srcs">${srcLinks(e.src || [])}</div>`));
+    });
 
     // compare
     const grp = adopt() ? r.users : r.people;
@@ -618,7 +637,7 @@
       "Electricity = tasks × electricity per task, including data-centre overhead.",
       `GPU time = electricity ÷ (${F.gpuKW.v} kW per H100-class GPU, all-in, × ${F.draw.v * 100}% average draw). Server time = GPU time ÷ ${SERVER}.`,
       `GPUs = GPU time ÷ hours in the period. Racks = GPUs ÷ ${F.gpusPerRack.v}. Data centres = IT power ÷ ${F.dcMW.v} MW.`,
-      "Floor and site = whole racks (at least one) × IT power per rack × area per MW.",
+      "Floor and site = whole servers (at least one) × IT power per server × area per MW.",
       "Power draw = electricity ÷ hours in the period.",
       "Water = electricity × (cooling + power-plant water). CO₂ = electricity × grid carbon intensity.",
       "Comparisons: per-person averages for everyone in the group, over the same period: Swiss, US or Australian averages, and world averages for the world. Training and hardware manufacturing are not included."
@@ -649,11 +668,12 @@
       `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
     pop.el.addEventListener("click", (e) => { const a = e.target.closest("[data-goto]"); if (a) { e.preventDefault(); goTo(a.dataset.goto); } });
     $("#infoCompare").addEventListener("click", (e) => infoPop(e.currentTarget, "About the comparisons",
-      `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Switzerland, Australia, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
+      `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Australia, Switzerland, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
     $("#infoLand").addEventListener("click", (e) => infoPop(e.currentTarget, "Data-centre land",
-      `<p>Counted in whole racks, at least one, since a share of a GPU still sits in a rack. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
+      `<p>Counted in whole ${SERVER}-GPU servers, at least one, since a share of a GPU still sits in a server. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(SERVER_MW * F.buildingM2perMW.v[1]))} m² per server, ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack of ${F.gpusPerRack.v}). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
     $("#infoTasks").addEventListener("click", (e) => infoPop(e.currentTarget, "Every task",
       `<p>Electricity for one task, once. Log scale: each gridline is 10× the one before. Whiskers show the low–high range. Click a row to pick that task.</p>`));
+    document.querySelectorAll("#metric button").forEach((b) => b.insertAdjacentHTML("afterbegin", svgIcon({ kwh: "bolt", water: "drop", co2: "cloud" }[b.dataset.v])));
     $("#metric").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.metric = b.dataset.v; render(); } });
     $("#view").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.view = b.dataset.v; render(); } });
     $("#cmpChips").addEventListener("click", (e) => {

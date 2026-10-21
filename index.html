@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=4">
+<link rel="stylesheet" href="assets/styles.css?v=10">
 </head>
 <body>
 <!--BODY-START-->
 <div class="wrap">
   <header class="top" id="top">
     <h1>AI Compute Footprint</h1>
-    <p class="lead">How much energy, space and time does it take to generate <span id="article">a</span>:</p>
+    <p class="lead">How much energy, space, water and CO₂ does it take to generate <span id="article">a</span>:</p>
   </header>
 
   <div class="eqbar" id="eqbar">
@@ -63,9 +63,9 @@
     <p class="meta">AI running on the <button type="button" class="tok sm" id="tokGrid" aria-haspopup="dialog" aria-expanded="false"></button> <button type="button" class="info" id="infoCompare" aria-label="About the comparisons">i</button></p>
     <div class="cmp-controls">
       <div class="seg" id="metric" role="group" aria-label="Measure">
-        <button type="button" data-v="co2">CO₂</button>
         <button type="button" data-v="kwh">Energy</button>
         <button type="button" data-v="water">Water</button>
+        <button type="button" data-v="co2">CO₂</button>
       </div>
       <div class="seg" id="view" role="group" aria-label="View">
         <button type="button" data-v="bars">Chart</button>
@@ -131,7 +131,7 @@
 <div class="pop" id="pop" role="dialog" aria-modal="false" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <!--BODY-END-->
-<script src="data/model.js?v=4"></script>
-<script src="assets/app.js?v=4"></script>
+<script src="data/model.js?v=10"></script>
+<script src="assets/app.js?v=10"></script>
 </body>
 </html>
