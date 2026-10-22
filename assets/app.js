@@ -521,7 +521,7 @@
     svg.innerHTML = art.html;
     svg.setAttribute("class", art.cls);
     $("#landLegend").innerHTML = `<span><span class="sw floor"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref ${ref.id}"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
-    $("#landMeta").textContent = `Drawn to scale. The whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole ${SERVER}-GPU servers, at least one: a lab model needs a full server, shared by many users at once. It includes aisles, cabling, power and cooling rooms and walls.`;
+    $("#landMeta").textContent = `Drawn to scale. Its share of the whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole ${SERVER}-GPU servers, at least one: a lab model needs a full server, shared by many users at once. It includes aisles, cabling, power and cooling rooms and walls.`;
   }
 
   /* ---------- compare */
@@ -609,13 +609,16 @@
     const eqv = { co2: r.co2[1], water: r.water[1], land: r.floor[1] };
     const homeDays = r.kwh[1] / r.b.homeKWhPerDay;
     const home = { id: "home", icon: "house", per: "kwh", value: r.b.homeKWhPerDay, n: homeDays, label: `days of one person's home electricity (${r.b.short})`,
-      each: `${nf(r.b.homeKWhPerDay)} kWh a day`, src: M.rungs.find((g) => g.id === "home").src };
-    const eqs = M.equivalents.filter(local).map((e) => ({ ...e, icon: EQ_ICON[e.id], n: eqv[e.per] / e.value, each: `${FMT[e.per](e.value)}${e.per === "co2" ? " CO₂" : ""} each` }))
+      amt: `${nf(r.b.homeKWhPerDay)}kWh`, each: `${nf(r.b.homeKWhPerDay)}kWh a day`, src: M.rungs.find((g) => g.id === "home").src };
+    const eqs = M.equivalents.filter(local).map((e) => {
+      const amt = `${FMT[e.per](e.value).replace(/^([\d.,]+) /, "$1")}${e.per === "co2" ? " CO₂" : ""}`;
+      return { ...e, icon: EQ_ICON[e.id], n: eqv[e.per] / e.value, amt, each: `${amt} each${EQ_ICON[e.id] === "car" ? " km" : ""}` };
+    })
       .filter((e) => !(e.id === "pool" && e.n < 1) && !(e.id === "shower" && e.n > 1e7)).concat(home);
     $("#equivs").innerHTML = eqs.map((e, i) => `<button type="button" class="equiv" data-i="${i}">${svgIcon(e.icon)}<b>${esc(fmtCount(e.n))}</b><span>${esc(e.label)}</span><small>${esc(e.each)}</small></button>`).join("");
     $("#equivs").querySelectorAll(".equiv").forEach((b) => {
       const e = eqs[b.dataset.i], tot = { co2: r.co2[1], water: r.water[1], kwh: r.kwh[1] }[e.per];
-      b.addEventListener("click", () => infoPop(b, e.label.replace(/^./, (ch) => ch.toUpperCase()), `<div class="val">${esc(e.each)}</div>${e.note ? `<p>${esc(e.note)}.</p>` : ""}<p>This scenario's ${METRIC[e.per]}, ${esc(FMT[e.per](tot))}, ÷ ${esc(e.each.replace(/ each$/, ""))} = ${esc(fmtCount(e.n))}.</p><div class="srcs">${srcLinks(e.src || [])}</div>`));
+      b.addEventListener("click", () => infoPop(b, e.label.replace(/^./, (ch) => ch.toUpperCase()), `<div class="val">${esc(e.each)}</div>${e.note ? `<p>${esc(e.note)}.</p>` : ""}<p>This scenario's ${METRIC[e.per]}, ${esc(FMT[e.per](tot))}, ÷ ${esc(e.amt)} = ${esc(fmtCount(e.n))}.</p><div class="srcs">${srcLinks(e.src || [])}</div>`));
     });
 
     // compare
