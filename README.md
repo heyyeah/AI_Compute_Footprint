@@ -6,11 +6,10 @@ An interactive page that shows what AI tasks take in physical terms, from one pe
 
 - **16 tasks**, ordered by electricity per task: short answer → image → simple web page → song → document draft → maths → interactive web page → presentation → small program → short video → full web app → animation → full program → app MVP → music video → functional app.
 - **Equation bar**: task × how often × how many people × period. Click any part to change it; it stays at the top while scrolling. Groups of 50 or more count only daily AI users by default.
-- **Compute**: hardware needed (one 8-GPU server up to many data centres) and a clock for server time.
-- **Footprint**: electricity, water, CO₂ and data-centre floor, with ranges; sources behind each (i).
-- **Data-centre land**: floor and whole site, drawn to scale against a parking space, football pitch or city.
+- **Footprint**: energy, data-centre floor space, water and CO₂, with ranges, plus tokens and server time; sources behind each (i). Inference only: training and making chips are not included.
+- **Data-centre floor space**: floor and whole site, drawn to scale against a parking space, football pitch, city or state.
 - **Power draw** on a ladder from an LED bulb to all electricity worldwide.
-- **Comparisons** with what the same people already use: eating beef, burning coal, driving, flying, home electricity, home water, whole carbon footprint (Swiss, US or world averages), as a chart or icons.
+- **Comparisons** with what the same people already use: eating beef, burning coal, driving, flying, home electricity, home water, total CO₂ footprint (Australian, Swiss, US or world averages), as a chart or icons.
 - **Every task ordered by energy used**, example scenarios, and collapsed sections on confidence, assumptions, sources and related projects.
 
 ## Files

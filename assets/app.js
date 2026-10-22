@@ -44,7 +44,7 @@
   };
   const svgIcon = (name, cls = "ico") => `<svg class="${cls} i-${name}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICON[name] || ICON.bolt}"/></svg>`;
   const CMP_ICON = { beef: "steak", coal: "coal", car: "car", flight: "plane", power: "house", water: "glass", total: "person" };
-  const EQ_ICON = { burger: "burger", carkm: "car", zrhlon: "plane", shower: "drop", pool: "pool" };
+  const EQ_ICON = { burger: "burger", carkm: "car", aucarkm: "car", zrhlon: "plane", sydmel: "plane", nycchi: "plane", shower: "drop", pool: "pool" };
 
   // visitors in American or Australian time zones start with their own averages
   function guessBasis() {
@@ -56,7 +56,7 @@
   const BASIS = guessBasis();
   const state = {
     task: 0, freq: 6, people: "person", customN: null, period: 3, own: true, adoption: null, share: null,
-    basis: BASIS, grid: BASIS === "AU" ? "au" : "eu", metric: "co2", view: "bars",
+    basis: BASIS, grid: null, metric: "co2", view: "bars",
     compare: new Set(["beef", "coal", "car", "flight", "total"]), taskLog: true
   };
 
@@ -150,6 +150,8 @@
   const basisId = () => LOCK[state.people] || state.basis;
   const adoptionRef = () => (state.people !== "custom" && preset().work ? M.bases[basisId()].work : M.bases[basisId()].adoption);
   const shareV = () => (state.share != null ? state.share : adoptionRef().v);
+  // grid follows the country unless picked; Swiss users are mostly served from European data centres
+  const gridId = () => state.grid || { AU: "au", US: "us", World: "world" }[basisId()] || "eu";
   const homeW = () => (M.bases[basisId()].homeKWhPerDay * 1000) / 24;
 
   const GPU_AVG_KW = F.gpuKW.v * F.draw.v;
@@ -158,7 +160,7 @@
   const SERVER_MW = (RACK_MW * SERVER) / F.gpusPerRack.v;
   const serverSec = (wh) => (wh / 1000 / GPU_AVG_KW / SERVER) * 3600;
   function compute() {
-    const t = M.tasks[state.task], f = M.frequencies[state.freq], b = M.bases[basisId()], g = M.grids[state.grid];
+    const t = M.tasks[state.task], f = M.frequencies[state.freq], b = M.bases[basisId()], g = M.grids[gridId()];
     const once = f.perDay == null;
     const own = once && state.own;
     const days = own ? Math.max(1, t.dur / 86400) : M.periods[state.period].days;
@@ -309,8 +311,8 @@
   }
   function popGrid() {
     const n = node(`<div class="optlist">${Object.entries(M.grids).map(([id, g]) => `
-      <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === state.grid}"><span>${esc(g.label)}</span><span class="w">${nf(g.co2 * 1000)} g CO₂/kWh</span></button>`).join("")}</div>
-      <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely; for users in Australia, Sydney and Melbourne.</p><p>${esc(M.grids[state.grid].note)}</p><div class="srcs">${srcLinks(M.grids[state.grid].src)}</div>`);
+      <button type="button" class="opt two" data-id="${id}" aria-pressed="${id === gridId()}"><span>${esc(g.label)}</span><span class="w">${nf(g.co2 * 1000)} g CO₂/kWh</span></button>`).join("")}</div>
+      <p>Where a request is served is not public; for users in Switzerland, European and US data centres are the most likely; for users in Australia, Sydney and Melbourne.</p><p>Follows the country unless you pick one.</p><p>${esc(M.grids[gridId()].note)}</p><div class="srcs">${srcLinks(M.grids[gridId()].src)}</div>`);
     n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.grid = b.dataset.id; closePop(true); render(); });
     return { node: n };
   }
@@ -389,11 +391,16 @@
   function hideTip() { tip.hidden = true; }
 
   /* ---------- power ladder */
-  function rungs() { return M.rungs.map((g) => ({ ...g, w: g.id === "home" ? homeW() : g.w })).sort((a, b) => a.w - b.w); }
+  // local references follow the people's country, or the visitor's for the world
+  const localId = () => (basisId() === "World" ? state.basis : basisId());
+  const local = (x) => !x.basis || [].concat(x.basis).includes(localId());
+  function rungs() { return M.rungs.filter(local).map((g) => ({ ...g, w: g.id === "home" ? homeW() : g.w })).sort((a, b) => a.w - b.w); }
   const RUNG_SAY = {
     bulb: (n) => `${n} LED bulbs`, kettle: (n) => `${n} kettles`, home: (n) => `the home electricity of ${n} people`,
     chdc: (n) => `${n}× all Swiss data centres`, goesgen: (n) => `${n} nuclear plants the size of Gösgen`,
-    ch: (n) => `${n}× all of Switzerland's electricity`, dcworld: (n) => `${n}× all data centres worldwide`, world: (n) => `${n}× all electricity worldwide`
+    ch: (n) => `${n}× all of Switzerland's electricity`,
+    audc: (n) => `${n}× Australia's east-coast data centres`, eraring: (n) => `${n} Eraring power stations`, au: (n) => `${n}× all of Australia's electricity`,
+    usdc: (n) => `${n}× all US data centres`, hoover: (n) => `${n} Hoover Dams at full output`, us: (n) => `${n}× all US electricity`, dcworld: (n) => `${n}× all data centres worldwide`, world: (n) => `${n}× all electricity worldwide`
   };
   function renderPower(r) {
     const w = r.watts[1], R = rungs();
@@ -498,7 +505,7 @@
     `<p>GPU time = electricity ÷ ${F.gpuKW.v} kW per H100-class GPU, all-in, at ${F.draw.v * 100}% of peak on average. Spare capacity kept idle is not counted.</p><p>One request runs on one copy of the model, usually one ${SERVER}-GPU server, shared with many other requests at once. A bigger task takes longer rather than using more servers: tokens are generated one after another. Many people at once need many servers.</p><p>${F.gpusPerRack.v} GPUs per rack, ${F.dcMW.v} MW data centres.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(["epoch", "dgx", "superpod", "epochdc", "nebius"])}</div>`);
   function renderLand(r) {
     const a = r.floor[1], st = r.site[1], ref = closestRef(a), sref = closestRef(st);
-    $("#landSay").innerHTML = `About ${sayRef(a, ref, true)}`;
+    $("#landSay").innerHTML = r.servers[1] === 1 ? `One shared server: about ${sayRef(a, ref, true)}` : `About ${sayRef(a, ref, true)}`;
     const gpuSec = (r.gpuH[1] / SERVER) * 3600, racks = r.fullRacks[1];
     const countTxt = r.count === 1 ? `1 ${r.t.name.replace(/^./, (ch) => ch.toLowerCase())}` : `${r.count < 1e6 ? nf(Math.round(r.count), 6) : fmtCount(r.count)} ${PLURAL[r.t.id]}`;
     $("#landCompute").innerHTML = (gpuSec <= r.hours * 3600
@@ -514,7 +521,7 @@
     svg.innerHTML = art.html;
     svg.setAttribute("class", art.cls);
     $("#landLegend").innerHTML = `<span><span class="sw floor"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref ${ref.id}"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
-    $("#landMeta").textContent = `Drawn to scale. The whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole servers (at least one) and includes aisles, cabling, power and cooling rooms and walls.`;
+    $("#landMeta").textContent = `Drawn to scale. The whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole ${SERVER}-GPU servers, at least one: a lab model needs a full server, shared by many users at once. It includes aisles, cabling, power and cooling rooms and walls.`;
   }
 
   /* ---------- compare */
@@ -565,29 +572,32 @@
     const setTok = (k, text) => document.querySelectorAll(`.tok[data-k="${k}"]`).forEach((b) => { b.textContent = text; });
     setTok("task", t.name);
     $("#article").textContent = /^[aeiou]/i.test(t.name) ? "an" : "a";
-    setTok("freq", r.f.label);
+    setTok("freq", r.people > 1 ? `${r.f.label} each` : r.f.label);
     setTok("people", peopleLabel());
     const pl = M.periods[state.period].label.toLowerCase();
     setTok("period", once ? (state.own ? (t.dur < 86400 ? "within a day" : `over ~${fmtD(t.dur)}`) : `within a ${pl}`) : `for a ${pl}`);
     $("#eqres").textContent = `= ${fmtE(r.kwh[1])} · ${fmtM(r.co2[1])} CO₂`;
     const one = t.name.replace(/^./, (ch) => ch.toLowerCase());
-    $("#taskline").innerHTML = `<span>${r.count === 1 ? `1 ${esc(one)}` : `<b>${esc(fmtCount(r.tokens))} tokens</b>, where one ${esc(one)} for 1 person`} = ~${esc(fmtCount(t.tokens))} tokens · ${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
+    const total = t.media ? `${fmtCount(r.count)} ${r.count === 1 ? one : PLURAL[t.id]}` : `${fmtCount(r.tokens)} tokens`;
+    $("#taskline").innerHTML = `<span>${r.count === 1 ? "" : `<b>${esc(total)}</b> in all. `}One ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
     $("#infoTask").addEventListener("click", (e) => taskInfo(e.currentTarget, t));
+    $("#tokGrid2").textContent = r.g.label;
     document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
 
     // footprint
-    const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
-    const stat = (cls, ic, k, v, rng, c, id) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r">${esc(rng)} ${conf(c)}</span></div>`;
+    const conf = (c, sfx = "") => `<span class="cf ${c}" title="${CONF[c]}${sfx}">${CONF_SHORT[c]}${sfx}</span>`;
+    const stat = (cls, ic, k, v, rng, c, id, sfx) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r">${esc(rng)} ${conf(c, sfx)}</span></div>`;
+    const oneServer = r.servers[1] === 1;
     $("#stats").innerHTML =
-      stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e") +
-      stat("l", "land", "Floor space", fmtA(r.floor[1]), `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l") +
+      stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e", t.conf === "good" ? " per task" : "") +
+      stat("l", "land", "Floor space", fmtA(r.floor[1]), oneServer ? `1 shared ${SERVER}-GPU server` : `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l") +
       stat("w", "drop", "Water", fmtW(r.water[1]), `${fmtW(r.water[0])} – ${fmtW(r.water[2])}`, "guess", "w") +
       stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c");
     const statInfo = {
       e: ["Energy", `<p>Electricity: ${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
       w: ["Water", `<p>${esc(fmtW(r.waterOn[1]))} evaporated cooling the data centre + ${esc(fmtW(r.waterOff[1]))} at power plants.</p><p>${esc(F.onsiteWater.note)}</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(F.onsiteWater.src.concat(r.g.src))}</div>`],
-      l: ["Floor space", `<p>Data-centre floor for ${esc(fmtCount(r.servers[1]))} whole ${SERVER}-GPU server${r.servers[1] > 1 ? "s" : ""} (at least one), including aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
-      c: ["CO₂", `<p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. Change the grid in the comparison section.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
+      l: ["Floor space", `<p>Data-centre floor for ${esc(fmtCount(r.servers[1]))} whole ${SERVER}-GPU server${r.servers[1] > 1 ? "s" : ""}${oneServer ? `, the smallest unit a lab model runs on, shared with many other users at once` : ""}. It includes aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
+      c: ["CO₂", `<p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. The grid follows the country; change it below the figures.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
     };
     $("#stats").querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => infoPop(b, ...statInfo[b.dataset.stat])));
 
@@ -599,7 +609,7 @@
     const homeDays = r.kwh[1] / r.b.homeKWhPerDay;
     const home = { id: "home", icon: "house", per: "kwh", value: r.b.homeKWhPerDay, n: homeDays, label: `days of one person's home electricity (${r.b.short})`,
       each: `${nf(r.b.homeKWhPerDay)} kWh a day`, src: M.rungs.find((g) => g.id === "home").src };
-    const eqs = M.equivalents.map((e) => ({ ...e, icon: EQ_ICON[e.id], n: eqv[e.per] / e.value, each: `${FMT[e.per](e.value)}${e.per === "co2" ? " CO₂" : ""} each` }))
+    const eqs = M.equivalents.filter(local).map((e) => ({ ...e, icon: EQ_ICON[e.id], n: eqv[e.per] / e.value, each: `${FMT[e.per](e.value)}${e.per === "co2" ? " CO₂" : ""} each` }))
       .filter((e) => !(e.id === "pool" && e.n < 1) && !(e.id === "shower" && e.n > 1e7)).concat(home);
     $("#equivs").innerHTML = eqs.map((e, i) => `<button type="button" class="equiv" data-i="${i}">${svgIcon(e.icon)}<b>${esc(fmtCount(e.n))}</b><span>${esc(e.label)}</span><small>${esc(e.each)}</small></button>`).join("");
     $("#equivs").querySelectorAll(".equiv").forEach((b) => {
@@ -662,15 +672,15 @@
   function bind() {
     const POPS = { task: ["Task", popTask], freq: ["How often, per person", popFreq], people: ["How many people", popPeople], period: ["Time period", popPeriod] };
     document.querySelectorAll(".tok[data-k]").forEach((b) => b.addEventListener("click", (e) => openPop(e.currentTarget, ...POPS[b.dataset.k])));
-    $("#tokGrid").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
+    ["#tokGrid", "#tokGrid2"].forEach((q) => $(q).addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid)));
     $("#tokCountry").addEventListener("click", (e) => openPop(e.currentTarget, "People live in", popCountry));
     $("#infoPower").addEventListener("click", (e) => infoPop(e.currentTarget, "Power draw",
       `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
     pop.el.addEventListener("click", (e) => { const a = e.target.closest("[data-goto]"); if (a) { e.preventDefault(); goTo(a.dataset.goto); } });
     $("#infoCompare").addEventListener("click", (e) => infoPop(e.currentTarget, "About the comparisons",
       `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Australia, Switzerland, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));
-    $("#infoLand").addEventListener("click", (e) => infoPop(e.currentTarget, "Data-centre land",
-      `<p>Counted in whole ${SERVER}-GPU servers, at least one, since a share of a GPU still sits in a server. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(SERVER_MW * F.buildingM2perMW.v[1]))} m² per server, ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack of ${F.gpusPerRack.v}). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
+    $("#infoLand").addEventListener("click", (e) => infoPop(e.currentTarget, "Data-centre floor space",
+      `<p>Counted in whole ${SERVER}-GPU servers, at least one: a lab model needs at least one full server, shared by many users at once. Floor: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power (about ${esc(nf(SERVER_MW * F.buildingM2perMW.v[1]))} m² per server, ${esc(nf(RACK_MW * F.buildingM2perMW.v[1]))} m² per rack of ${F.gpusPerRack.v}). Whole site: ${esc(nf(F.landM2perMW.v[1]))} m² per MW (range ${esc(nf(F.landM2perMW.v[0]))}–${esc(nf(F.landM2perMW.v[2]))}), from recent AI campuses. Land is taken up by capacity, not used up by each prompt.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p><div class="srcs">${srcLinks(F.landM2perMW.src.concat(...M.landRefs.map((g) => g.src || [])))}</div>`));
     $("#infoTasks").addEventListener("click", (e) => infoPop(e.currentTarget, "Every task",
       `<p>Electricity for one task, once. Log scale: each gridline is 10× the one before. Whiskers show the low–high range. Click a row to pick that task.</p>`));
     document.querySelectorAll("#metric button").forEach((b) => b.insertAdjacentHTML("afterbegin", svgIcon({ kwh: "bolt", water: "drop", co2: "cloud" }[b.dataset.v])));

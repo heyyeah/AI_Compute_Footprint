@@ -85,6 +85,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 
 
 .taskline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin: 0; padding: 9px 16px; background: var(--panel); }
 .taskline b { color: var(--ink); }
+.scope { font-size: 12px; color: var(--muted); margin: 0; padding: 7px 16px; background: var(--panel); }
 
 .scenarios, .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .scenarios .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
@@ -324,5 +325,6 @@ footer { color: var(--muted); font-size: 12.5px; }
   .stat .r { grid-column: 1 / -1; font-size: 10px; }
   #eqbar .eq { font-size: 19px; gap: 2px 4px; }
   .taskline { display: block; padding: 8px 12px; }
+  .scope { padding: 7px 12px; font-size: 11.5px; }
   .taskline .info { margin-left: 4px; vertical-align: middle; }
 }
