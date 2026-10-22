@@ -87,10 +87,8 @@
   }
   function fmtW(L) {
     if (L < 1) return `${nf(L * 1000)} mL`;
-    if (L < 1000) return `${nf(L)} L`;
-    if (L < 1e9) return `${nf(L / 1000)} m³`;
-    if (L < 1e12) return `${nf(L / 1e9)} million m³`;
-    return `${nf(L / 1e12)} km³`;
+    if (L < 1e6) return `${nf(L)} L`;
+    return `${fmtCount(L)} L`;
   }
   function fmtM(kg) {
     if (kg < 0.001) return `${nf(kg * 1e6)} mg`;
