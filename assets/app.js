@@ -396,8 +396,8 @@
   const local = (x) => !x.basis || [].concat(x.basis).includes(localId());
   function rungs() { return M.rungs.filter(local).map((g) => ({ ...g, w: g.id === "home" ? homeW() : g.w })).sort((a, b) => a.w - b.w); }
   const RUNG_SAY = {
-    bulb: (n) => `${n} LED bulbs`, kettle: (n) => `${n} kettles`, home: (n) => `the home electricity of ${n} people`,
-    charger: (n) => `${n} electric-car fast chargers`, wind: (n) => `${n} wind turbines at full output`,
+    bulb: (n) => `${n} LED bulbs lit non-stop`, kettle: (n) => `${n} kettles boiling non-stop`, home: (n) => `the home electricity of ${n} people`,
+    charger: (n) => `${n} electric-car fast chargers running non-stop`, wind: (n) => `${n} wind turbines at full output`,
     chdc: (n) => `${n}× all Swiss data centres`, goesgen: (n) => `${n} nuclear plants the size of Gösgen`,
     ch: (n) => `${n}× all of Switzerland's electricity`,
     audc: (n) => `${n}× Australia's east-coast data centres`, eraring: (n) => `${n} Eraring power stations`, au: (n) => `${n}× all of Australia's electricity`,
@@ -407,12 +407,12 @@
     const w = r.watts[1], R = rungs();
     const below = R.filter((g) => g.w <= w).pop(), above = R.find((g) => g.w > w);
     let say;
-    if (!below) say = `${esc(nf((w / R[0].w) * 100))}% of one LED bulb`;
+    if (!below) say = `${nf((w / R[0].w) * 100)}% of one LED bulb lit non-stop`;
     else {
       const n = w / below.w;
       say = RUNG_SAY[below.id](n >= 1000 ? fmtCount(n) : nf(n));
     }
-    $("#powerSay").innerHTML = `<b>${esc(fmtE(r.kwh[1]))}</b> over ${esc(r.span)} = <b>${esc(fmtPow(w))}</b> non-stop, like <em>${esc(say)}</em>.`;
+    $("#powerSay").innerHTML = `<b>${esc(fmtE(r.kwh[1]))}</b> over ${esc(r.span)} = <em>${esc(say)}</em> (<b>${esc(fmtPow(w))}</b> average).`;
     const lo = Math.floor(Math.log10(Math.min(w, R[0].w))) - 0.3, hi = Math.ceil(Math.log10(Math.max(w, R[R.length - 1].w))) + 0.3;
     const x = (v) => ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * 100;
     const ticks = [];
