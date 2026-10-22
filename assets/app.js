@@ -40,6 +40,8 @@
     pin: "M12 2.5a7 7 0 0 1 7 7c0 5-7 12-7 12s-7-7-7-12a7 7 0 0 1 7-7zM12 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
     campus: "M2 20.5V9.5l6-3v3l6-3v3l6-3v14z",
     globe: "M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19zM12 4.6c-2 2.1-3 4.6-3 7.4s1 5.3 3 7.4c2-2.1 3-4.6 3-7.4s-1-5.3-3-7.4z",
+    charger: "M4 4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17H4zM6.5 5.5v4h6v-4zM10.5 11 8 15.2h1.8l-.6 3.3 2.8-4.3h-1.8l.6-3.2zM16 9h1.5a2 2 0 0 1 2 2v6.5a.75.75 0 0 0 1.5 0V8.5l-2-2 1-1 2.5 2.5v9.5a2.25 2.25 0 0 1-4.5 0V11a.5.5 0 0 0-.5-.5H16z",
+    wind: "M12 5.9a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zM11 5.8 11.6 1h.8l.6 4.8zM13.2 9.2l.7-1.4 5.3 3.1-.4.7zM10.8 9.2l-.7-1.4-5.3 3.1.4.7zM10.8 9.6h2.4l1 12h-4.4z",
     gpu: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM8 9v6h8V9z"
   };
   const svgIcon = (name, cls = "ico") => `<svg class="${cls} i-${name}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICON[name] || ICON.bolt}"/></svg>`;
@@ -395,6 +397,7 @@
   function rungs() { return M.rungs.filter(local).map((g) => ({ ...g, w: g.id === "home" ? homeW() : g.w })).sort((a, b) => a.w - b.w); }
   const RUNG_SAY = {
     bulb: (n) => `${n} LED bulbs`, kettle: (n) => `${n} kettles`, home: (n) => `the home electricity of ${n} people`,
+    charger: (n) => `${n} electric-car fast chargers`, wind: (n) => `${n} wind turbines at full output`,
     chdc: (n) => `${n}× all Swiss data centres`, goesgen: (n) => `${n} nuclear plants the size of Gösgen`,
     ch: (n) => `${n}× all of Switzerland's electricity`,
     audc: (n) => `${n}× Australia's east-coast data centres`, eraring: (n) => `${n} Eraring power stations`, au: (n) => `${n}× all of Australia's electricity`,
@@ -409,7 +412,7 @@
       const n = w / below.w;
       say = RUNG_SAY[below.id](n >= 1000 ? fmtCount(n) : nf(n));
     }
-    $("#powerSay").innerHTML = `<b>${esc(fmtE(r.kwh[1]))}</b> over ${esc(r.span)} = <b>${esc(fmtPow(w))}</b> on average: as much as <em>${esc(say)}</em>, non-stop.`;
+    $("#powerSay").innerHTML = `<b>${esc(fmtE(r.kwh[1]))}</b> over ${esc(r.span)} = <b>${esc(fmtPow(w))}</b> non-stop, like <em>${esc(say)}</em>.`;
     const lo = Math.floor(Math.log10(Math.min(w, R[0].w))) - 0.3, hi = Math.ceil(Math.log10(Math.max(w, R[R.length - 1].w))) + 0.3;
     const x = (v) => ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * 100;
     const ticks = [];
@@ -427,8 +430,6 @@
     const you = $("#ladder .you");
     you.addEventListener("pointermove", (e) => showTip(e, `This scenario: ${fmtPow(w)} on average`));
     you.addEventListener("pointerleave", hideTip);
-    const lab = (g) => `${g.label} (${fmtPow(g.w)})`;
-    $("#powerBetween").textContent = `${below && above ? `Between ${lab(below)} and ${lab(above)}. ` : ""}Log scale: 1,000× between labels.`;
   }
 
   /* ---------- land, to scale */
@@ -677,7 +678,7 @@
     $("#tokGrid").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
     $("#tokCountry").addEventListener("click", (e) => openPop(e.currentTarget, "People live in", popCountry));
     $("#infoPower").addEventListener("click", (e) => infoPop(e.currentTarget, "Power draw",
-      `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
+      `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source. Log scale: each label is 1,000× the one before.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
     pop.el.addEventListener("click", (e) => { const a = e.target.closest("[data-goto]"); if (a) { e.preventDefault(); goTo(a.dataset.goto); } });
     $("#infoCompare").addEventListener("click", (e) => infoPop(e.currentTarget, "About the comparisons",
       `<p>Per-person averages (${esc(M.bases[basisId()].label)}) for everyone in the group, over the same period. Australia, Switzerland, the USA and the world always use their own averages. They include people who don't eat beef, drive or fly.</p><p>With "only daily AI users" on, both sides count only those users.</p>`));

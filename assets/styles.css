@@ -144,8 +144,8 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin
 .ladder .rung.up::before { top: 22px; height: 10px; } .ladder .rung.dn::before { top: -8px; height: 8px; }
 .ladder .rung .ico { opacity: .7; } .ladder .rung.near .ico { opacity: 1; }
 /* everyday things: one colour per icon, never AI orange or floor grey */
-.i-bulb, .i-burger { color: var(--c-amber); } .i-kettle, .i-globe, .i-pool { color: var(--c-teal); } .i-house { color: var(--c-green); }
-.i-rack, .i-campus, .i-plane { color: var(--c-blue); } .i-tower, .i-car { color: var(--c-violet); } .i-pin, .i-steak { color: var(--c-rose); }
+.i-bulb, .i-burger { color: var(--c-amber); } .i-kettle, .i-globe, .i-pool, .i-wind { color: var(--c-teal); } .i-house { color: var(--c-green); }
+.i-rack, .i-campus, .i-plane { color: var(--c-blue); } .i-tower, .i-car, .i-charger { color: var(--c-violet); } .i-pin, .i-steak { color: var(--c-rose); }
 .equiv .ico.i-drop { color: var(--cold); }
 .ladder .you { cursor: help; position: absolute; top: 38px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--hot); box-shadow: 0 0 0 3px var(--panel); transition: left .4s ease; }
 .ladder .tickl { position: absolute; top: 76px; transform: translateX(-50%); font-family: var(--font-mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
