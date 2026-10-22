@@ -14,7 +14,7 @@
     prodapp: "functional apps"
   };
   const CONF = { good: "High confidence (measured)", rough: "Medium confidence (estimated)", guess: "Low confidence (rough estimate)", missing: "Not shown" };
-  const CONF_SHORT = { good: "high confidence", rough: "medium confidence", guess: "low confidence" };
+  const CONF_SHORT = { good: "high confidence", rough: "medium confidence", guess: "rough estimate" };
   const FREQ_INTERVAL = { y1: 365, m1: 30.44, w1: 7 };
 
   /* 24×24 filled glyphs */
@@ -520,7 +520,7 @@
     svg.innerHTML = art.html;
     svg.setAttribute("class", art.cls);
     $("#landLegend").innerHTML = `<span><span class="sw floor"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref ${ref.id}"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
-    $("#landMeta").textContent = `Drawn to scale. Its share of the whole site, with roads, substations and space between buildings, is about ${fmtA(st)}, or ${sayRef(st, sref)}. Floor counts whole ${SERVER}-GPU servers, at least one: a lab model needs a full server, shared by many users at once. It includes aisles, cabling, power and cooling rooms and walls.`;
+    $("#landMeta").textContent = `Drawn to scale. Floor counts whole ${SERVER}-GPU servers (at least one, shared by many users), plus aisles, cabling, power and cooling rooms. With roads, substations and gaps between buildings, its share of the site is about ${fmtA(st)}, or ${sayRef(st, sref)}.`;
   }
 
   /* ---------- compare */
