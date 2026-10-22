@@ -165,10 +165,10 @@ window.MODEL = {
     us: { label: "US grid", co2: 0.384, water: 1.8, waterRange: [0.8, 4.5],
       note: "384 g CO₂e/kWh (Ember, 2025, lifecycle, as for the other grids; EPA eGRID 2023, combustion only: 350 g). Power-plant water 1.8 L/kWh (thermoelectric only; 4.5 if hydro-reservoir evaporation is counted).",
       src: ["emberus", "egrid", "lbnl", "macknick"] },
-    world: { label: "World average grid", co2: 0.458, water: 1.8, waterRange: [0.8, 4.5],
+    world: { label: "World average grid", say: "world average grid", co2: 0.458, water: 1.8, waterRange: [0.8, 4.5],
       note: "458 g CO₂e/kWh (Ember, 2025). No global water factor exists; US value used as a stand-in.",
       src: ["ember"] },
-    market: { label: "Renewable contracts (market-based)", co2: 0.009, water: 1.8, waterRange: [0.8, 4.5],
+    market: { label: "Renewable contracts (market-based)", say: "grid, counted with renewable contracts", co2: 0.009, water: 1.8, waterRange: [0.8, 4.5],
       note: "~9 g/kWh, how hyperscalers report after buying renewable certificates (Microsoft FY24: 0.26 Mt over 29.8 TWh). The physical grid's emissions are unchanged; their location-based figure is ~334 g.",
       src: ["msftfacts"] }
   },
@@ -361,7 +361,7 @@ window.MODEL = {
     { what: "Water", level: "guess", why: "On-site cooling varies ~10× by operator and climate; power-plant water depends on whether hydro-reservoir evaporation counts. Local scarcity matters more than litres.", src: ["lbnl", "google", "msftfacts", "macknick", "argonne"] },
     { what: "CO₂", level: "rough", why: "Mostly a choice of grid: 9 g/kWh market-based vs 458 g world average, a 50× spread.", src: ["egrid", "vse", "embereu", "ember", "msftfacts"] },
     { what: "Training the models", level: "missing", why: "Not included. There is no agreed way to spread a training run over future prompts; estimates suggest it adds little per prompt.", src: ["masley"] },
-    { what: "Making the chips and buildings", level: "missing", why: "Not included. Embodied emissions are real but rarely disclosed per GPU." },
+    { what: "Making the chips and buildings", level: "missing", why: "Not included: making the chips, building the data centres and shipping the equipment. Embodied emissions are real but rarely disclosed per GPU." },
     { what: "Which data centre serves you", level: "missing", why: "Unknown for any given request. Use the grid selector to see the effect." },
     { what: "What the AI replaces", level: "missing", why: "If AI saves a trip or hours of work, the net effect can be smaller. Not modelled." },
     { what: "Beef, coal, driving, flying", level: "rough", why: "World averages mix data years 2022–2025 and some secondary sources. Beef CO₂ ranges 14–100 kg per kg by study; beef water is 650 L (blue) or 15,400 L (incl. rain). Swiss car figures are a lower bound. Fuel water uses a US crude factor; global estimates are ~5× lower. Australian power-plant water is derived from 2004–05 per-fuel figures.", src: ["poore", "mekonnen", "agridea", "owidmeat", "ieacoal26", "carsco2", "iata24", "argonne"] }

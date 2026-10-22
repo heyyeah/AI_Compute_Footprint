@@ -122,7 +122,7 @@
   const METRIC = { co2: "CO₂", kwh: "energy", water: "water" };
 
   function srcLinks(ids) {
-    return (ids || []).filter((id) => M.sources[id]).map((id) => {
+    return [...new Set(ids || [])].filter((id) => M.sources[id]).map((id) => {
       const s = M.sources[id];
       const short = s.t.split(/,|:/)[0].replace(/\s*\(.*$/, "");
       return `<a href="${esc(s.u)}" target="_blank" rel="noopener" title="${esc(s.t)} (${esc(s.d)})">${esc(short)}</a>`;
@@ -579,14 +579,15 @@
     $("#eqres").textContent = `= ${fmtE(r.kwh[1])} · ${fmtM(r.co2[1])} CO₂`;
     const one = t.name.replace(/^./, (ch) => ch.toLowerCase());
     const total = t.media ? `${fmtCount(r.count)} ${r.count === 1 ? one : PLURAL[t.id]}` : `${fmtCount(r.tokens)} tokens`;
-    $("#taskline").innerHTML = `<span>${r.count === 1 ? "" : `<b>${esc(total)}</b> in all. `}One ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
+    const grid = `<button type="button" class="tok sm" id="tokGrid2" aria-haspopup="dialog" aria-expanded="false">${esc(r.g.say || r.g.label)}</button>`;
+    $("#taskline").innerHTML = `<span>${r.count === 1 ? "For inference only" : `<b>${esc(total)}</b> for inference only`}, powered by the ${grid}.<br>One ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
     $("#infoTask").addEventListener("click", (e) => taskInfo(e.currentTarget, t));
-    $("#tokGrid2").textContent = r.g.label;
+    $("#tokGrid2").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
     document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
 
     // footprint
     const conf = (c, sfx = "") => `<span class="cf ${c}" title="${CONF[c]}${sfx}">${CONF_SHORT[c]}${sfx}</span>`;
-    const stat = (cls, ic, k, v, rng, c, id, sfx) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r">${esc(rng)} ${conf(c, sfx)}</span></div>`;
+    const stat = (cls, ic, k, v, rng, c, id, sfx) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r"><span class="rg">${esc(rng)} </span>${conf(c, sfx)}</span></div>`;
     const oneServer = r.servers[1] === 1;
     $("#stats").innerHTML =
       stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e", t.conf === "good" ? " per task" : "") +
@@ -594,10 +595,10 @@
       stat("w", "drop", "Water", fmtW(r.water[1]), `${fmtW(r.water[0])} – ${fmtW(r.water[2])}`, "guess", "w") +
       stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c");
     const statInfo = {
-      e: ["Energy", `<p>Electricity: ${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
-      w: ["Water", `<p>${esc(fmtW(r.waterOn[1]))} evaporated cooling the data centre + ${esc(fmtW(r.waterOff[1]))} at power plants.</p><p>${esc(F.onsiteWater.note)}</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(F.onsiteWater.src.concat(r.g.src))}</div>`],
-      l: ["Floor space", `<p>Data-centre floor for ${esc(fmtCount(r.servers[1]))} whole ${SERVER}-GPU server${r.servers[1] > 1 ? "s" : ""}${oneServer ? `, the smallest unit a lab model runs on, shared with many other users at once` : ""}. It includes aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
-      c: ["CO₂", `<p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. The grid follows the country; change it below the figures.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
+      e: ["Energy", `<div class="val">${esc(fmtE(r.kwh[0]))} – ${esc(fmtE(r.kwh[2]))}</div><p>Inference only: training the models, making the chips, building the data centres and shipping the equipment are not included.</p><p>Electricity: ${esc(nf(t.wh[1]))} Wh per task × ${esc(fmtCount(r.count))} tasks. Includes cooling and other data-centre overhead.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`],
+      w: ["Water", `<div class="val">${esc(fmtW(r.water[0]))} – ${esc(fmtW(r.water[2]))}</div><p>${esc(fmtW(r.waterOn[1]))} evaporated cooling the data centre + ${esc(fmtW(r.waterOff[1]))} at power plants.</p><p>${esc(F.onsiteWater.note)}</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(F.onsiteWater.src.concat(r.g.src))}</div>`],
+      l: ["Floor space", `<div class="val">${esc(fmtA(r.floor[0]))} – ${esc(fmtA(r.floor[2]))}</div><p>Data-centre floor for ${esc(fmtCount(r.servers[1]))} whole ${SERVER}-GPU server${r.servers[1] > 1 ? "s" : ""}${oneServer ? `, the smallest unit a lab model runs on, shared with many other users at once` : ""}. It includes aisles, cabling, power and cooling rooms and walls: ${esc(nf(F.buildingM2perMW.v[1]))} m² per MW of IT power. With roads, substations and space between buildings, the site is ${esc(fmtA(r.site[1]))}.</p><p>${esc(F.buildingM2perMW.note)}</p><div class="srcs">${srcLinks(F.buildingM2perMW.src.concat(F.landM2perMW.src))}</div>`],
+      c: ["CO₂", `<div class="val">${esc(fmtM(r.co2[0]))} – ${esc(fmtM(r.co2[2]))}</div><p>${esc(fmtE(r.kwh[1]))} × ${esc(nf(r.g.co2 * 1000))} g per kWh on the ${esc(r.g.label)}. The grid follows the country; change it below the figures.</p><p>${esc(r.g.note)}</p><div class="srcs">${srcLinks(r.g.src)}</div>`]
     };
     $("#stats").querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => infoPop(b, ...statInfo[b.dataset.stat])));
 
@@ -650,7 +651,7 @@
       "Floor and site = whole servers (at least one) × IT power per server × area per MW.",
       "Power draw = electricity ÷ hours in the period.",
       "Water = electricity × (cooling + power-plant water). CO₂ = electricity × grid carbon intensity.",
-      "Comparisons: per-person averages for everyone in the group, over the same period: Swiss, US or Australian averages, and world averages for the world. Training and hardware manufacturing are not included."
+      "Comparisons: per-person averages for everyone in the group, over the same period: Swiss, US or Australian averages, and world averages for the world. Inference only: training the models, making the chips, building the data centres and shipping the equipment are not included."
     ].map((s) => `<li>${esc(s)}</li>`).join("");
     const frow = (f, val) => `<tr><td>${esc(f.label)}</td><td class="num">${esc(val)}</td><td>${esc(f.note)}</td><td class="srcs">${srcLinks(f.src)}</td></tr>`;
     const tri = (v, u) => `${nf(v[1])} ${u} (${nf(v[0])}–${nf(v[2])})`;
@@ -672,7 +673,7 @@
   function bind() {
     const POPS = { task: ["Task", popTask], freq: ["How often, per person", popFreq], people: ["How many people", popPeople], period: ["Time period", popPeriod] };
     document.querySelectorAll(".tok[data-k]").forEach((b) => b.addEventListener("click", (e) => openPop(e.currentTarget, ...POPS[b.dataset.k])));
-    ["#tokGrid", "#tokGrid2"].forEach((q) => $(q).addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid)));
+    $("#tokGrid").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
     $("#tokCountry").addEventListener("click", (e) => openPop(e.currentTarget, "People live in", popCountry));
     $("#infoPower").addEventListener("click", (e) => infoPop(e.currentTarget, "Power draw",
       `<p>Average power = electricity ÷ hours in the period, as if spread evenly. Tap an icon on the line for its value and source.</p><p>Hardware, power and land follow the rate of use, so they stay the same over a longer period. Electricity, water and CO₂ add up over the period.</p>`));
