@@ -13,8 +13,8 @@
     webapp: "full web apps", animation: "animations", "program-full": "full programs", mvp: "app MVPs", musicvideo: "music videos",
     prodapp: "functional apps"
   };
-  const CONF = { good: "Measured", rough: "Estimate", guess: "Rough estimate", missing: "Not shown" };
-  const CONF_SHORT = { good: "measured", rough: "estimate", guess: "rough estimate" };
+  const CONF = { good: "High confidence (measured)", rough: "Medium confidence (estimated)", guess: "Low confidence (rough estimate)", missing: "Not shown" };
+  const CONF_SHORT = { good: "high confidence", rough: "medium confidence", guess: "low confidence" };
   const FREQ_INTERVAL = { y1: 365, m1: 30.44, w1: 7 };
 
   /* 24×24 filled glyphs */
@@ -404,12 +404,12 @@
     const w = r.watts[1], R = rungs();
     const below = R.filter((g) => g.w <= w).pop(), above = R.find((g) => g.w > w);
     let say;
-    if (!below) say = `As much as <em>${esc(nf((w / R[0].w) * 100))}%</em> of one LED bulb, non-stop.`;
+    if (!below) say = `${esc(nf((w / R[0].w) * 100))}% of one LED bulb`;
     else {
       const n = w / below.w;
-      say = `As much as <em>${esc(RUNG_SAY[below.id](n >= 1000 ? fmtCount(n) : nf(n)))}</em>, non-stop.`;
+      say = RUNG_SAY[below.id](n >= 1000 ? fmtCount(n) : nf(n));
     }
-    $("#powerSay").innerHTML = say;
+    $("#powerSay").innerHTML = `<b>${esc(fmtE(r.kwh[1]))}</b> over ${esc(r.span)} = <b>${esc(fmtPow(w))}</b> on average: as much as <em>${esc(say)}</em>, non-stop.`;
     const lo = Math.floor(Math.log10(Math.min(w, R[0].w))) - 0.3, hi = Math.ceil(Math.log10(Math.max(w, R[R.length - 1].w))) + 0.3;
     const x = (v) => ((Math.log10(Math.max(v, 1e-12)) - lo) / (hi - lo)) * 100;
     const ticks = [];
@@ -428,7 +428,7 @@
     you.addEventListener("pointermove", (e) => showTip(e, `This scenario: ${fmtPow(w)} on average`));
     you.addEventListener("pointerleave", hideTip);
     const lab = (g) => `${g.label} (${fmtPow(g.w)})`;
-    $("#powerBetween").textContent = `${fmtPow(w)} on average${below && above ? `, between ${lab(below)} and ${lab(above)}` : ""}. Log scale: 1,000× between labels.`;
+    $("#powerBetween").textContent = `${below && above ? `Between ${lab(below)} and ${lab(above)}. ` : ""}Log scale: 1,000× between labels.`;
   }
 
   /* ---------- land, to scale */
@@ -584,11 +584,11 @@
     document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
 
     // footprint
-    const conf = (c, sfx = "") => `<span class="cf ${c}" title="${CONF[c]}${sfx}">${CONF_SHORT[c]}${sfx}</span>`;
-    const stat = (cls, ic, k, v, rng, c, id, sfx) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r"><span class="rg">${esc(rng)} </span>${conf(c, sfx)}</span></div>`;
+    const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
+    const stat = (cls, ic, k, v, rng, c, id) => `<div class="stat ${cls}">${svgIcon(ic)}<span class="k">${k}</span><button type="button" class="info" data-stat="${id}" aria-label="About ${k}">i</button><span class="v">${esc(v)}</span><span class="r"><span class="rg">${esc(rng)} </span>${conf(c)}</span></div>`;
     const oneServer = r.servers[1] === 1;
     $("#stats").innerHTML =
-      stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e", t.conf === "good" ? " per task" : "") +
+      stat("e", "bolt", "Energy", fmtE(r.kwh[1]), `${fmtE(r.kwh[0])} – ${fmtE(r.kwh[2])}`, t.conf, "e") +
       stat("l", "land", "Floor space", fmtA(r.floor[1]), oneServer ? `1 shared ${SERVER}-GPU server` : `${fmtA(r.floor[0])} – ${fmtA(r.floor[2])}`, "guess", "l") +
       stat("w", "drop", "Water", fmtW(r.water[1]), `${fmtW(r.water[0])} – ${fmtW(r.water[2])}`, "guess", "w") +
       stat("c", "cloud", "CO₂", fmtM(r.co2[1]), `${fmtM(r.co2[0])} – ${fmtM(r.co2[2])}`, t.conf === "good" ? "rough" : t.conf, "c");
@@ -633,7 +633,7 @@
 
     // tasks
     logChart($("#taskChart"), M.tasks.map((tk, i) => ({
-      label: tk.name, sub: esc(CONF[tk.conf]), v: tk.wh[1], lo: tk.wh[0], hi: tk.wh[2], cls: i === state.task ? "sel" : "",
+      label: tk.name, sub: esc(CONF_SHORT[tk.conf]), v: tk.wh[1], lo: tk.wh[0], hi: tk.wh[2], cls: i === state.task ? "sel" : "",
       tip: `${tk.name}: ${nf(tk.wh[1])} Wh (${nf(tk.wh[0])}–${nf(tk.wh[2])})`, info: (b) => taskInfo(b, tk)
     })), { fmt: (wh) => fmtE(wh / 1000), log: state.taskLog, onScale: (on) => { state.taskLog = on; render(); }, onClick: (i) => { state.task = i; render(); } });
 
@@ -643,7 +643,7 @@
   /* ---------- static content */
   function renderStatic() {
     $("#scenarios").innerHTML = M.scenarios.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.label)}</button>`).join("");
-    $("#uncTable tbody").innerHTML = M.uncertainty.map((u) => `<tr><td>${esc(u.what)}</td><td><span class="pill ${u.level}">${CONF[u.level]}</span></td><td>${esc(u.why)}</td><td class="srcs">${u.src ? srcLinks(u.src) : "—"}</td></tr>`).join("");
+    $("#uncTable tbody").innerHTML = M.uncertainty.map((u) => `<tr><td>${esc(u.what)}</td><td><span class="pill ${u.level}">${CONF[u.level].replace(" confidence", "")}</span></td><td>${esc(u.why)}</td><td class="srcs">${u.src ? srcLinks(u.src) : "—"}</td></tr>`).join("");
     $("#method").innerHTML = [
       "Tasks = people × share using AI × uses per day × days. “Once” = each person once, over the task's own duration.",
       "Electricity = tasks × electricity per task, including data-centre overhead.",
