@@ -520,12 +520,12 @@
     svg.innerHTML = art.html;
     svg.setAttribute("class", art.cls);
     $("#landLegend").innerHTML = `<span><span class="sw floor"></span>Data-centre floor: ${esc(fmtA(a))}</span><span><span class="sw ref ${ref.id}"></span>${esc(ref.label)} (${esc(ref.note)})</span>`;
-    $("#landMeta").textContent = `Drawn to scale. Floor counts whole ${SERVER}-GPU servers (at least one, shared by many users), plus aisles, cabling, power and cooling rooms. With roads, substations and gaps between buildings, its share of the site is about ${fmtA(st)}, or ${sayRef(st, sref)}.`;
+    $("#landMeta").textContent = `Drawn to scale: whole ${SERVER}-GPU servers (at least one, shared with other users), plus aisles, power and cooling rooms. Share of the whole site, roads and substations included: about ${fmtA(st)}, or ${sayRef(st, sref)}.`;
   }
 
   /* ---------- compare */
   const cmpInfo = (b, c) => infoPop(b, c.label, `<p>${esc(c[basisId()].qty)} per person a year (${esc(M.bases[basisId()].label)}).</p><p>${esc(c.note)}</p><div class="srcs">${srcLinks(c.src)}</div>`);
-  const taskInfo = (b, t) => infoPop(b, t.name, `<p style="color:var(--ink)">${esc(t.desc)}</p><p class="${t.conf}">${CONF[t.conf]}</p><p>${esc(nf(t.wh[1]))} Wh (${esc(nf(t.wh[0]))}–${esc(nf(t.wh[2]))}) per task · ${esc(t.basis)}.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`);
+  const taskInfo = (b, t) => infoPop(b, t.name, `<p style="color:var(--ink)">${esc(t.desc)}</p><p class="${t.conf}">${CONF[t.conf]}</p><p>${esc(nf(t.wh[1]))} Wh (${esc(nf(t.wh[0]))}–${esc(nf(t.wh[2]))}) per task · ${esc(t.basis)}. About ${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time.</p><p>${esc(t.note)}</p><div class="srcs">${srcLinks(t.src)}</div>`);
   function renderCompare(r) {
     const grp = adopt() ? r.users : r.people;
     const m = state.metric, ai = r[m], who = grp === 1 ? "1 person" : `${fmtCount(grp, 3)} ${adopt() ? "daily AI users" : "people"}`;
@@ -579,7 +579,7 @@
     const one = t.name.replace(/^./, (ch) => ch.toLowerCase());
     const total = t.media ? `${fmtCount(r.count)} ${r.count === 1 ? one : PLURAL[t.id]}` : `${fmtCount(r.tokens)} tokens`;
     const grid = `<button type="button" class="tok sm" id="tokGrid2" aria-haspopup="dialog" aria-expanded="false">${esc(r.g.say || r.g.label)}</button>`;
-    $("#taskline").innerHTML = `<span>${r.count === 1 ? "For inference only" : `<b>${esc(total)}</b> for inference only`}, powered by the ${grid}.<br>One ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} (~${esc(fmtD(serverSec(t.wh[1])))} of ${SERVER}-GPU server time) · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
+    $("#taskline").innerHTML = `<span>${r.count === 1 ? "On" : `<b>${esc(total)}</b> on`} the ${grid} (inference only). 1 ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
     $("#infoTask").addEventListener("click", (e) => taskInfo(e.currentTarget, t));
     $("#tokGrid2").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
     document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
