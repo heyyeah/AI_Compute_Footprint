@@ -250,7 +250,7 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin
 .pop {
   position: fixed; z-index: 50; width: min(380px, calc(100vw - 24px)); max-height: min(70vh, 560px); overflow: auto;
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow);
-  padding: 14px 16px; display: grid; gap: 10px; font-size: 14px;
+  padding: 14px 16px; display: grid; gap: 10px; align-content: start; font-size: 14px;
 }
 .pop.sheet {
   left: 0 !important; right: 0; bottom: 0; top: auto !important; width: 100%; max-height: 78vh;

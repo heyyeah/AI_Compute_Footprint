@@ -39,7 +39,7 @@
     tower: "M6 21c1.6-4.2 1.6-9.6 0-15h12c-1.6 5.4-1.6 10.8 0 15zM9 3h2.2v2H9zm3.8-1H15v3h-2.2z",
     pin: "M12 2.5a7 7 0 0 1 7 7c0 5-7 12-7 12s-7-7-7-12a7 7 0 0 1 7-7zM12 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
     campus: "M2 20.5V9.5l6-3v3l6-3v3l6-3v14z",
-    globe: "M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19zM12 4.6c-2 2.1-3 4.6-3 7.4s1 5.3 3 7.4c2-2.1 3-4.6 3-7.4s-1-5.3-3-7.4z",
+    globe: "M12 2.1a9.9 9.9 0 1 1 0 19.8a9.9 9.9 0 1 1 0 -19.8zM9.69 6.6A3.1 8.1 0 0 1 14.31 6.6zM8.76 4.58A8.1 8.1 0 0 0 5.96 6.6H7.89A4.9 9.9 0 0 1 8.76 4.58zM15.24 4.58A8.1 8.1 0 0 1 18.04 6.6H16.11A4.9 9.9 0 0 0 15.24 4.58zM9.22 8.4H14.78A3.1 8.1 0 0 1 15.08 11.1H8.92A3.1 8.1 0 0 1 9.22 8.4zM4.74 8.4H7.44A4.9 9.9 0 0 1 7.12 11.1H3.95A8.1 8.1 0 0 0 4.74 8.4zM19.26 8.4H16.56A4.9 9.9 0 0 0 16.88 11.1H20.05A8.1 8.1 0 0 1 19.26 8.4zM8.92 12.9H15.08A3.1 8.1 0 0 1 14.78 15.6H9.22A3.1 8.1 0 0 1 8.92 12.9zM3.95 12.9H7.12A4.9 9.9 0 0 1 7.44 15.6H4.74A8.1 8.1 0 0 0 3.95 12.9zM20.05 12.9H16.88A4.9 9.9 0 0 0 16.56 15.6H19.26A8.1 8.1 0 0 1 20.05 12.9zM9.69 17.4A3.1 8.1 0 0 0 14.31 17.4zM8.76 19.42A8.1 8.1 0 0 1 5.96 17.4H7.89A4.9 9.9 0 0 0 8.76 19.42zM15.24 19.42A8.1 8.1 0 0 0 18.04 17.4H16.11A4.9 9.9 0 0 1 15.24 19.42z",
     charger: "M4 4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17H4zM6.5 5.5v4h6v-4zM10.5 11 8 15.2h1.8l-.6 3.3 2.8-4.3h-1.8l.6-3.2zM16 9h1.5a2 2 0 0 1 2 2v6.5a.75.75 0 0 0 1.5 0V8.5l-2-2 1-1 2.5 2.5v9.5a2.25 2.25 0 0 1-4.5 0V11a.5.5 0 0 0-.5-.5H16z",
     wind: "M12 5.9a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zM11 5.8 11.6 1h.8l.6 4.8zM13.2 9.2l.7-1.4 5.3 3.1-.4.7zM10.8 9.2l-.7-1.4-5.3 3.1.4.7zM10.8 9.6h2.4l1 12h-4.4z",
     gpu: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM8 9v6h8V9z"
@@ -195,6 +195,7 @@
     pop.anchor.setAttribute("aria-expanded", "false");
     if (refocus) pop.anchor.focus();
     pop.el.hidden = true; pop.scrim.hidden = true; pop.anchor = null; pop.update = null;
+    pop.el.style.top = "";
   }
   function openPop(anchor, title, build) {
     if (pop.anchor === anchor) { closePop(); return; }
@@ -215,7 +216,13 @@
     const sheet = window.innerWidth < 640;
     pop.el.classList.toggle("sheet", sheet);
     pop.scrim.hidden = !sheet;
-    if (sheet) { pop.el.style.left = ""; pop.el.style.top = ""; return; }
+    // sheet: pin the top so sliders stay put; it only grows, after a slider is released
+    if (sheet) {
+      const was = parseFloat(pop.el.style.top) || Infinity;
+      pop.el.style.left = ""; pop.el.style.top = "";
+      pop.el.style.setProperty("top", `${Math.min(was, Math.max(12, window.innerHeight - pop.el.offsetHeight))}px`, "important");
+      return;
+    }
     const r = pop.anchor.getBoundingClientRect();
     const w = pop.el.offsetWidth, h = pop.el.offsetHeight;
     const left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
@@ -261,8 +268,9 @@
   }
   function popPeople() {
     const list = presetsSorted();
-    const n = node(`<div class="val" id="ppVal"></div><div class="sub" id="ppSub"></div>
+    const n = node(`<div class="val" id="ppVal"></div>
       <input type="range" id="ppRange" min="0" max="${list.length - 1}" step="1" aria-label="How many people">
+      <div class="sub" id="ppSub"></div>
       <label class="inline" for="ppNum">Or type a number<input type="number" id="ppNum" min="1" step="1" inputmode="numeric" placeholder="e.g. 12000"></label>
       <div class="seg" id="ppCountry" role="group" aria-label="People live in">${Object.entries(M.bases).filter(([id]) => id !== "World").map(([id, b]) => `<button type="button" data-id="${id}">${esc(b.label)}</button>`).join("")}</div>
       <label class="switch" for="ppAdopt"><input type="checkbox" id="ppAdopt"><span>Only people who use AI daily<br><small class="sub" id="ppAdoptNote"></small></span></label>
@@ -706,6 +714,7 @@
       window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
     });
     pop.scrim.addEventListener("click", () => closePop());
+    pop.el.addEventListener("change", (e) => { if (e.target.type === "range") placePop(); });
     pop.el.addEventListener("focusout", (e) => { const t = e.relatedTarget; if (pop.anchor && t && !pop.el.contains(t) && t !== pop.anchor) closePop(); });
     // tabbing past either end returns to the control that opened it
     pop.el.addEventListener("keydown", (e) => {
