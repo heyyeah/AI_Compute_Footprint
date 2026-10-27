@@ -651,7 +651,7 @@
 
   /* ---------- static content */
   function renderStatic() {
-    $("#scenarios").innerHTML = M.scenarios.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.label)}</button>`).join("");
+    $("#scenarios").innerHTML = `<span class="lbl">Try</span>` + M.scenarios.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.label)}</button>`).join("");
     $("#uncTable tbody").innerHTML = M.uncertainty.map((u) => `<tr><td>${esc(u.what)}</td><td><span class="pill ${u.level}">${CONF[u.level].replace(" confidence", "")}</span></td><td>${esc(u.why)}</td><td class="srcs">${u.src ? srcLinks(u.src) : "—"}</td></tr>`).join("");
     $("#method").innerHTML = [
       "Tasks = people × share using AI × uses per day × days. “Once” = each person once, over the task's own duration.",
@@ -711,7 +711,6 @@
       });
       render();
       b.setAttribute("aria-pressed", "true");
-      window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
     });
     pop.scrim.addEventListener("click", () => closePop());
     pop.el.addEventListener("change", (e) => { if (e.target.type === "range") placePop(); });

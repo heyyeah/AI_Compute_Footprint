@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=20">
+<link rel="stylesheet" href="assets/styles.css?v=21">
 </head>
 <body>
 <!--BODY-START-->
@@ -41,6 +41,8 @@
     <div class="stats" id="stats"></div>
     <p class="taskline" id="taskline"></p>
   </section>
+
+  <div class="scenarios" id="scenarios" role="group" aria-label="Try a scenario"></div>
 
   <section class="panel block" aria-labelledby="landTitle">
     <div class="row-head"><h2 id="landTitle">Data-centre floor space</h2><button type="button" class="info" id="infoLand" aria-label="About data-centre floor space">i</button></div>
@@ -89,11 +91,6 @@
     <div id="taskChart"></div>
   </section>
 
-  <section class="panel block" aria-labelledby="tryTitle">
-    <h2 id="tryTitle">Try a scenario</h2>
-    <div class="scenarios" id="scenarios"></div>
-  </section>
-
   <div class="more">
     <details id="sure">
       <summary>How sure is this?</summary>
@@ -118,7 +115,7 @@
     </details>
     <details>
       <summary>Why I made this</summary>
-      <p class="why">I wanted to understand what it takes to generate everyday AI tasks next to the footprint of things we already do.</p>
+      <p class="why">I wanted to understand what it takes to generate everyday AI tasks next to the footprint of things we already do. More in the <a href="https://boxc.net/blog/2026/ai-compute-footprint/" target="_blank" rel="noopener">blog post</a>.</p>
     </details>
   </div>
 
@@ -139,7 +136,7 @@
 <div class="pop" id="pop" role="dialog" aria-modal="false" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <!--BODY-END-->
-<script src="data/model.js?v=20"></script>
-<script src="assets/app.js?v=20"></script>
+<script src="data/model.js?v=21"></script>
+<script src="assets/app.js?v=21"></script>
 </body>
 </html>

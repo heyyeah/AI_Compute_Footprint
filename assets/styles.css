@@ -89,6 +89,8 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 
 .taskline .tok { font-family: inherit; font-weight: 700; padding: 0; border-bottom-width: 1.5px; }
 
 .scenarios, .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.scenarios .chip { white-space: nowrap; }
+@media (max-width: 560px) { .scenarios { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -18px; padding-inline: 18px; } }
 .scenarios .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
 .chip { font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
 .chip:hover { border-color: var(--cold); }
