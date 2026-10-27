@@ -267,6 +267,13 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin
 .pop input[type="range"] { width: 100%; accent-color: var(--cold); height: 26px; margin: 0; }
 .pop input[type="number"] { font: inherit; font-size: 15px; padding: 7px 9px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 100%; }
 .pop label.inline { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.pop .rng { display: grid; gap: 2px; }
+.pop .ticks { display: flex; justify-content: space-between; padding-inline: 7px; }
+.pop .ticks i { width: 2px; height: 6px; border-radius: 1px; background: var(--line); }
+.pop .ticks i.on { background: var(--cold); }
+.pop .own { display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 15px; }
+.pop .own input[type="number"] { width: 96px; }
+.pop select { font: inherit; font-size: 15px; padding: 7px 9px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 .pop .switch { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; }
 .pop .switch input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--cold); flex: none; }
 .pop .srcs { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; }

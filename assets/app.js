@@ -57,7 +57,7 @@
   }
   const BASIS = guessBasis();
   const state = {
-    task: 0, freq: 6, people: "person", customN: null, period: 3, own: true, adoption: null, share: null,
+    task: 0, freq: 6, customFreq: null, people: "person", customN: null, period: 3, own: true, adoption: null, share: null,
     basis: BASIS, grid: null, metric: "co2", view: "bars",
     compare: new Set(["beef", "coal", "car", "flight", "total"]), taskLog: true
   };
@@ -133,8 +133,15 @@
   const presetsSorted = () => M.presets.slice().sort((a, b) => a[state.basis].n - b[state.basis].n);
   const preset = () => M.presets.find((p) => p.id === state.people);
   const peopleN = () => (state.people === "custom" ? state.customN : preset()[state.basis].n);
-  const isOnce = () => M.frequencies[state.freq].perDay == null;
-  const allowedPeriod = (i) => M.periods[i].days >= (FREQ_INTERVAL[M.frequencies[state.freq].id] || 0) - 0.01;
+  const UNIT_DAYS = { day: 1, week: 7, month: 30.44, year: 365 };
+  // preset frequency, or the user's own: n per unit
+  const freq = () => {
+    const c = state.customFreq;
+    if (!c) { const f = M.frequencies[state.freq]; return { ...f, every: FREQ_INTERVAL[f.id] || 0 }; }
+    return { id: "custom", label: `${nf(c.n, 3)} a ${c.unit}`, perDay: c.n / UNIT_DAYS[c.unit], every: UNIT_DAYS[c.unit] / c.n };
+  };
+  const isOnce = () => freq().perDay == null;
+  const allowedPeriod = (i) => M.periods[i].days >= freq().every - 0.01;
   function fixPeriod() { if (!allowedPeriod(state.period)) state.period = M.periods.findIndex((p, i) => allowedPeriod(i)); }
   // daily-users filter defaults on from 50 people
   const adopt = () => (state.adoption != null ? state.adoption : peopleN() >= 50);
@@ -160,7 +167,7 @@
   const SERVER_MW = (RACK_MW * SERVER) / F.gpusPerRack.v;
   const serverSec = (wh) => (wh / 1000 / GPU_AVG_KW / SERVER) * 3600;
   function compute() {
-    const t = M.tasks[state.task], f = M.frequencies[state.freq], b = M.bases[basisId()], g = M.grids[gridId()];
+    const t = M.tasks[state.task], f = freq(), b = M.bases[basisId()], g = M.grids[gridId()];
     const once = f.perDay == null;
     const own = once && state.own;
     const days = own ? Math.max(1, t.dur / 86400) : M.periods[state.period].days;
@@ -253,23 +260,46 @@
     n.addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; state.task = +b.dataset.i; closePop(true); render(); });
     return { node: n };
   }
+  // slider step markers
+  const ticks = (k) => `<div class="ticks" aria-hidden="true">${"<i></i>".repeat(k)}</div>`;
+  const markTick = (n, i) => n.querySelectorAll(".ticks i").forEach((t, j) => t.classList.toggle("on", j === i));
   function popFreq() {
+    const F = M.frequencies;
     const n = node(`<div class="val" id="pfVal"></div>
-      <input type="range" id="pfRange" min="0" max="${M.frequencies.length - 1}" step="1" value="${state.freq}" aria-label="How often, per person">
-      <p id="pfNote"></p>`);
+      <div class="rng"><input type="range" id="pfRange" min="0" max="${F.length - 1}" step="1" aria-label="How often, per person">${ticks(F.length)}</div>
+      <p id="pfNote"></p>
+      <label class="inline" for="pfNum">Or type a number<span class="own"><input type="number" id="pfNum" min="1" max="10000" step="any" inputmode="decimal" placeholder="e.g. 3"> a
+        <select id="pfUnit" aria-label="Per">${Object.keys(UNIT_DAYS).map((u) => `<option>${u}</option>`).join("")}</select></span></label>`);
+    const range = n.querySelector("#pfRange"), num = n.querySelector("#pfNum"), unit = n.querySelector("#pfUnit");
+    if (state.customFreq) { num.value = state.customFreq.n; unit.value = state.customFreq.unit; }
     const update = () => {
-      n.querySelector("#pfVal").textContent = M.frequencies[state.freq].label;
-      n.querySelector("#pfRange").setAttribute("aria-valuetext", M.frequencies[state.freq].label);
-      n.querySelector("#pfNote").textContent = isOnce() ? "Each person does it once. The time is the task's own duration." : "Per person, every day of the period.";
+      const f = freq();
+      n.querySelector("#pfVal").textContent = f.label;
+      range.value = state.freq;
+      range.setAttribute("aria-valuetext", f.label);
+      markTick(n, state.freq);
+      n.querySelector("#pfNote").textContent = isOnce() ? "Each person does it once. The time is the task's own duration."
+        : f.id === "custom" ? "Per person, spread evenly over the period." : "Per person, every day of the period.";
     };
-    n.querySelector("#pfRange").addEventListener("input", (e) => { state.freq = +e.target.value; fixPeriod(); render(); });
+    range.addEventListener("input", (e) => { state.freq = +e.target.value; state.customFreq = null; num.value = ""; fixPeriod(); render(); });
+    const typed = () => {
+      const v = +num.value;
+      if (!(v >= 1 && v <= 10000)) return;
+      state.customFreq = { n: v, unit: unit.value };
+      // slider shows the nearest step
+      const pd = freq().perDay;
+      state.freq = F.reduce((best, f, i) => (f.perDay != null && Math.abs(Math.log(f.perDay / pd)) < Math.abs(Math.log((F[best].perDay ?? Infinity) / pd)) ? i : best), F.length - 1);
+      fixPeriod(); render();
+    };
+    num.addEventListener("input", typed);
+    unit.addEventListener("change", typed);
     update();
     return { node: n, update };
   }
   function popPeople() {
     const list = presetsSorted();
     const n = node(`<div class="val" id="ppVal"></div>
-      <input type="range" id="ppRange" min="0" max="${list.length - 1}" step="1" aria-label="How many people">
+      <div class="rng"><input type="range" id="ppRange" min="0" max="${list.length - 1}" step="1" aria-label="How many people">${ticks(list.length)}</div>
       <div class="sub" id="ppSub"></div>
       <label class="inline" for="ppNum">Or type a number<input type="number" id="ppNum" min="1" step="1" inputmode="numeric" placeholder="e.g. 12000"></label>
       <div class="seg" id="ppCountry" role="group" aria-label="People live in">${Object.entries(M.bases).filter(([id]) => id !== "World").map(([id, b]) => `<button type="button" data-id="${id}">${esc(b.label)}</button>`).join("")}</div>
@@ -284,6 +314,7 @@
       let idx = list.findIndex((p) => p.id === state.people);
       if (idx < 0) idx = list.reduce((best, p, i) => (Math.abs(Math.log(p[state.basis].n / N)) < Math.abs(Math.log(list[best][state.basis].n / N)) ? i : best), 0);
       range.value = idx;
+      markTick(n, idx);
       range.setAttribute("aria-valuetext", peopleLabel());
       n.querySelectorAll("#ppCountry button").forEach((b) => { b.setAttribute("aria-pressed", String(b.dataset.id === basisId())); b.disabled = !!LOCK[state.people]; });
       n.querySelector("#ppAdopt").checked = adopt();
@@ -307,7 +338,7 @@
     const once = isOnce(), t = M.tasks[state.task], own = once && state.own;
     const ownBtn = once ? `<div class="optlist"><button type="button" class="opt two" data-own="1" aria-pressed="${own}"><span>The task's own time</span><span class="w">${t.dur < 86400 ? "under a day" : `~${esc(fmtD(t.dur))}`}</span></button></div>` : "";
     const note = once ? "Within a shorter time needs more GPUs at once. The energy stays the same."
-      : M.periods.some((p, i) => !allowedPeriod(i)) ? `Shorter periods are off for ${esc(M.frequencies[state.freq].label.toLowerCase())}.` : "Totals are added up over this period.";
+      : M.periods.some((p, i) => !allowedPeriod(i)) ? `Shorter periods are off for ${esc(freq().label.toLowerCase())}.` : "Totals are added up over this period.";
     const n = node(`${ownBtn}<div class="seg" role="group" aria-label="Time period">${M.periods.map((p, i) =>
       `<button type="button" data-i="${i}" aria-pressed="${!own && i === state.period}" ${allowedPeriod(i) ? "" : "disabled"}>${esc(p.label)}</button>`).join("")}</div><p>${note}</p>`);
     n.addEventListener("click", (e) => {
@@ -594,7 +625,7 @@
     document.querySelectorAll("#scenarios .chip").forEach((b) => {
       const sc = M.scenarios[+b.dataset.i], s = sc.s;
       const on = M.tasks[state.task].id === s.task && state.people === s.people && M.periods[state.period].id === s.period
-        && (sc.anyFreq || M.frequencies[state.freq].id === s.freq) && (!s.basis || state.basis === s.basis);
+        && (sc.anyFreq || freq().id === s.freq) && (!s.basis || state.basis === s.basis);
       b.setAttribute("aria-pressed", String(on));
     });
 
@@ -712,7 +743,7 @@
       const b = e.target.closest("button"); if (!b) return;
       const s = M.scenarios[+b.dataset.i].s;
       Object.assign(state, {
-        task: M.tasks.findIndex((t) => t.id === s.task), freq: M.frequencies.findIndex((f) => f.id === s.freq),
+        task: M.tasks.findIndex((t) => t.id === s.task), freq: M.frequencies.findIndex((f) => f.id === s.freq), customFreq: null,
         people: s.people, period: M.periods.findIndex((p) => p.id === s.period), own: true, share: null, adoption: s.adoption ?? null, basis: s.basis || state.basis
       });
       render();
