@@ -278,7 +278,7 @@
       range.value = state.freq;
       range.setAttribute("aria-valuetext", f.label);
       markTick(n, state.freq);
-      n.querySelector("#pfNote").textContent = isOnce() ? "Each person does it once. The time is the task's own duration."
+      n.querySelector("#pfNote").textContent = isOnce() ? "Each person does it once."
         : f.id === "custom" ? "Per person, spread evenly over the period." : "Per person, every day of the period.";
     };
     range.addEventListener("input", (e) => { state.freq = +e.target.value; state.customFreq = null; num.value = ""; fixPeriod(); render(); });
