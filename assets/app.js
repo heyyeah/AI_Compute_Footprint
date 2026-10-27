@@ -590,7 +590,13 @@
     $("#taskline").innerHTML = `<span>${r.count === 1 ? "On" : `<b>${esc(total)}</b> on`} the ${grid} (inference only). 1 ${esc(one)} = ${t.media ? "" : `~${esc(fmtCount(t.tokens))} tokens · `}${esc(fmtE(t.wh[1] / 1000))} · ${esc(t.time)} · <span class="${t.conf}">${CONF_SHORT[t.conf]}</span></span><button type="button" class="info" id="infoTask" aria-label="About this task">i</button>`;
     $("#infoTask").addEventListener("click", (e) => taskInfo(e.currentTarget, t));
     $("#tokGrid2").addEventListener("click", (e) => openPop(e.currentTarget, "Data centres run on", popGrid));
-    document.querySelectorAll("#scenarios .chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
+    // highlight the scenario the current choices match
+    document.querySelectorAll("#scenarios .chip").forEach((b) => {
+      const sc = M.scenarios[+b.dataset.i], s = sc.s;
+      const on = M.tasks[state.task].id === s.task && state.people === s.people && M.periods[state.period].id === s.period
+        && (sc.anyFreq || M.frequencies[state.freq].id === s.freq) && (!s.basis || state.basis === s.basis);
+      b.setAttribute("aria-pressed", String(on));
+    });
 
     // footprint
     const conf = (c) => `<span class="cf ${c}" title="${CONF[c]}">${CONF_SHORT[c]}</span>`;
@@ -710,7 +716,6 @@
         people: s.people, period: M.periods.findIndex((p) => p.id === s.period), own: true, share: null, adoption: s.adoption ?? null, basis: s.basis || state.basis
       });
       render();
-      b.setAttribute("aria-pressed", "true");
     });
     pop.scrim.addEventListener("click", () => closePop());
     pop.el.addEventListener("change", (e) => { if (e.target.type === "range") placePop(); });
