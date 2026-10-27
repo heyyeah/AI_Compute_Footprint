@@ -342,11 +342,11 @@ window.MODEL = {
   ],
 
   scenarios: [
-    { label: "My year of questions", anyFreq: true, s: { task: "query", freq: "d10", people: "person", period: "year" } },
-    { label: "Every company coder, daily", s: { task: "program", freq: "d1", people: "medco", period: "year", adoption: false } },
-    { label: "Switzerland chatting for a year", s: { task: "query", freq: "d10", people: "smallcountry", period: "year", basis: "CH" } },
-    { label: "The world chatting for a year", s: { task: "query", freq: "d10", people: "world", period: "year" } },
-    { label: "Everyone makes a video a day", s: { task: "video", freq: "d1", people: "world", period: "year", adoption: false } }
+    { label: "My year of chats", anyFreq: true, s: { task: "query", freq: "d10", people: "person", period: "year" } },
+    { label: "Company coders, daily", s: { task: "program", freq: "d1", people: "medco", period: "year", adoption: false } },
+    { label: "Switzerland chats for a year", s: { task: "query", freq: "d10", people: "smallcountry", period: "year", basis: "CH" } },
+    { label: "All daily users chat for a year", s: { task: "query", freq: "d10", people: "world", period: "year", adoption: true } },
+    { label: "Everyone makes a daily video", s: { task: "video", freq: "d1", people: "world", period: "year", adoption: false } }
   ],
 
   /* ------------------------------------------------------- UNCERTAINTY */
